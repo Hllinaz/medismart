@@ -1,36 +1,284 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏥 MediSmart – Guía de Desarrollo y Estructura
 
-## Getting Started
+Este documento define **cómo se debe programar el proyecto**.
+No es opcional: estas reglas evitan errores, retrabajo y desorden.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# 🎯 Objetivo del documento
+
+* Mantener el código organizado
+* Evitar duplicación de lógica
+* Separar correctamente responsabilidades
+* Facilitar el trabajo en equipo (Scrum)
+
+---
+
+# 🧱 Arquitectura del proyecto
+
+```text
+Frontend (app/)
+   ↓
+API (app/api)
+   ↓
+Services (lógica de negocio)
+   ↓
+Base de datos (Prisma)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+# 📁 Estructura del proyecto
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+src/
+├── app/            # Rutas, vistas y API (Next.js)
+├── components/     # UI reutilizable
+├── services/       # 🔥 Lógica del negocio
+├── lib/            # Configuración y utilidades
+├── prisma/         # Base de datos (schema)
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+# 📂 Descripción por carpetas
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🔹 `app/` → Frontend + API
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Contiene:
 
-## Deploy on Vercel
+* páginas del sistema
+* dashboards
+* API routes (`/api`)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### ⚠️ Reglas:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+* NO lógica de negocio aquí
+* Solo:
+
+  * recibir requests
+  * enviar responses
+  * renderizar vistas
+
+---
+
+## 🔹 `app/api/` → Backend (controladores)
+
+Ejemplo:
+
+```bash
+api/appointments/route.ts
+```
+
+### ⚠️ Reglas:
+
+* NO lógica compleja
+* SOLO:
+
+  * validar input
+  * llamar services
+  * devolver respuesta
+
+---
+
+## 🔹 `services/` → 🔥 LÓGICA DEL SISTEMA
+
+Aquí vive el corazón del proyecto.
+
+Ejemplos:
+
+* crear cita
+* cancelar cita
+* priorizar pacientes
+* reasignar citas
+
+### ⚠️ Reglas:
+
+* NO usar React
+* NO manejar HTTP
+* NO acceder directamente al frontend
+* Código reutilizable y limpio
+
+---
+
+## 🔹 `components/` → UI
+
+Componentes visuales reutilizables.
+
+### Estructura:
+
+```bash
+components/
+├── ui/
+├── forms/
+├── layout/
+```
+
+### ⚠️ Reglas:
+
+* NO lógica de negocio
+* SOLO presentación
+
+---
+
+## 🔹 `lib/` → Configuración
+
+Ejemplos:
+
+* conexión a base de datos
+* helpers
+* utilidades globales
+
+---
+
+## 🔹 `prisma/` → Base de datos
+
+Contiene:
+
+* `schema.prisma`
+
+### ⚠️ Nota:
+
+La base de datos será gestionada por el responsable asignado.
+
+---
+
+# 🔁 Flujo de desarrollo
+
+```text
+1. Usuario interactúa (frontend)
+2. Se llama API (route.ts)
+3. API llama a service
+4. Service ejecuta lógica
+5. Prisma guarda/consulta datos
+```
+
+---
+
+# 🚫 Reglas CRÍTICAS (NO romper)
+
+## ❌ NO lógica en el frontend
+
+Todo va en `services/`
+
+---
+
+## ❌ NO lógica en API routes
+
+Solo coordinación
+
+---
+
+## ❌ NO duplicar funciones
+
+Si ya existe un service → reutilizar
+
+---
+
+## ❌ NO acceder a la DB desde componentes
+
+Solo desde services
+
+---
+
+# 🧠 Convenciones de código
+
+## 📌 Nombres de funciones
+
+```ts
+createAppointment()
+cancelAppointment()
+calculatePriority()
+```
+
+---
+
+## 📌 Estructura de services
+
+```bash
+services/
+├── appointment/
+├── auth/
+├── priority/
+```
+
+---
+
+## 📌 API routes
+
+Siempre deben exportar:
+
+```ts
+export async function GET() {}
+export async function POST() {}
+```
+
+---
+
+# 🌿 Uso de Git (OBLIGATORIO)
+
+## ❌ Nunca trabajar en main
+
+Usar ramas:
+
+```bash
+feature/auth
+feature/appointments
+feature/prioritization
+```
+
+---
+
+## 📌 Commits
+
+Formato:
+
+```bash
+feat: add appointment creation
+fix: login validation error
+chore: project setup
+```
+
+---
+
+# 👥 Organización del equipo
+
+Cada integrante debe trabajar en:
+
+* un módulo específico
+* una rama específica
+
+Ejemplo:
+
+| Persona  | Módulo         |
+| -------- | -------------- |
+| Backend  | API + services |
+| Frontend | UI             |
+| DB       | Prisma         |
+
+---
+
+# ⚠️ Antes de subir código
+
+Verificar:
+
+* ¿Está en la carpeta correcta?
+* ¿No rompe la arquitectura?
+* ¿No duplica lógica?
+* ¿Usa services?
+
+---
+
+# 🚀 Nota final
+
+Este proyecto no es solo frontend.
+
+La parte más importante es:
+
+* priorización de citas
+* reasignación automática
+* lógica del sistema
+
+---
+
+**Si no sabes dónde poner algo → pregunta antes de hacerlo.**
