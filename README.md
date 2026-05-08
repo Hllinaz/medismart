@@ -1,284 +1,271 @@
-# 🏥 MediSmart – Guía de Desarrollo y Estructura
+# MediSmart
 
-Este documento define **cómo se debe programar el proyecto**.
-No es opcional: estas reglas evitan errores, retrabajo y desorden.
+MediSmart es un proyecto web construido con Next.js App Router, TypeScript, Prisma y MySQL.
 
----
+## Stack
 
-# 🎯 Objetivo del documento
+- Next.js 16.2.4
+- React 19.2.4
+- TypeScript
+- Prisma 6.19.x
+- MySQL
+- bcryptjs
+- jsonwebtoken
 
-* Mantener el código organizado
-* Evitar duplicación de lógica
-* Separar correctamente responsabilidades
-* Facilitar el trabajo en equipo (Scrum)
+## Arquitectura
 
----
+El proyecto usa arquitectura de Next.js sin carpeta `src/`.
 
-# 🧱 Arquitectura del proyecto
+```txt
+app/
+  api/
+    admin/
+    auth/
+  globals.css
+  layout.tsx
+  page.tsx
 
-```text
-Frontend (app/)
-   ↓
-API (app/api)
-   ↓
-Services (lógica de negocio)
-   ↓
-Base de datos (Prisma)
-```
+lib/
+  auth.ts
+  prisma.ts
 
----
-
-# 📁 Estructura del proyecto
-
-```bash
-src/
-├── app/            # Rutas, vistas y API (Next.js)
-├── components/     # UI reutilizable
-├── services/       # 🔥 Lógica del negocio
-├── lib/            # Configuración y utilidades
-├── prisma/         # Base de datos (schema)
-```
-
----
-
-# 📂 Descripción por carpetas
-
-## 🔹 `app/` → Frontend + API
-
-Contiene:
-
-* páginas del sistema
-* dashboards
-* API routes (`/api`)
-
-### ⚠️ Reglas:
-
-* NO lógica de negocio aquí
-* Solo:
-
-  * recibir requests
-  * enviar responses
-  * renderizar vistas
-
----
-
-## 🔹 `app/api/` → Backend (controladores)
-
-Ejemplo:
-
-```bash
-api/appointments/route.ts
-```
-
-### ⚠️ Reglas:
-
-* NO lógica compleja
-* SOLO:
-
-  * validar input
-  * llamar services
-  * devolver respuesta
-
----
-
-## 🔹 `services/` → 🔥 LÓGICA DEL SISTEMA
-
-Aquí vive el corazón del proyecto.
-
-Ejemplos:
-
-* crear cita
-* cancelar cita
-* priorizar pacientes
-* reasignar citas
-
-### ⚠️ Reglas:
-
-* NO usar React
-* NO manejar HTTP
-* NO acceder directamente al frontend
-* Código reutilizable y limpio
-
----
-
-## 🔹 `components/` → UI
-
-Componentes visuales reutilizables.
-
-### Estructura:
-
-```bash
-components/
-├── ui/
-├── forms/
-├── layout/
-```
-
-### ⚠️ Reglas:
-
-* NO lógica de negocio
-* SOLO presentación
-
----
-
-## 🔹 `lib/` → Configuración
-
-Ejemplos:
-
-* conexión a base de datos
-* helpers
-* utilidades globales
-
----
-
-## 🔹 `prisma/` → Base de datos
-
-Contiene:
-
-* `schema.prisma`
-
-### ⚠️ Nota:
-
-La base de datos será gestionada por el responsable asignado.
-
----
-
-# 🔁 Flujo de desarrollo
-
-```text
-1. Usuario interactúa (frontend)
-2. Se llama API (route.ts)
-3. API llama a service
-4. Service ejecuta lógica
-5. Prisma guarda/consulta datos
-```
-
----
-
-# 🚫 Reglas CRÍTICAS (NO romper)
-
-## ❌ NO lógica en el frontend
-
-Todo va en `services/`
-
----
-
-## ❌ NO lógica en API routes
-
-Solo coordinación
-
----
-
-## ❌ NO duplicar funciones
-
-Si ya existe un service → reutilizar
-
----
-
-## ❌ NO acceder a la DB desde componentes
-
-Solo desde services
-
----
-
-# 🧠 Convenciones de código
-
-## 📌 Nombres de funciones
-
-```ts
-createAppointment()
-cancelAppointment()
-calculatePriority()
-```
-
----
-
-## 📌 Estructura de services
-
-```bash
 services/
-├── appointment/
-├── auth/
-├── priority/
+
+prisma/
+  schema.prisma
 ```
 
----
+## Carpetas principales
 
-## 📌 API routes
+### `app/`
 
-Siempre deben exportar:
+Contiene rutas, layouts, paginas y API Routes de Next.js.
+
+### `app/api/`
+
+Contiene endpoints backend usando Route Handlers.
+
+### `lib/`
+
+Contiene utilidades compartidas:
+
+- `lib/prisma.ts`: instancia singleton de Prisma Client.
+- `lib/auth.ts`: helpers de autenticacion, JWT y autorizacion por rol.
+
+### `services/`
+
+Reservado para logica de negocio reutilizable.
+
+### `prisma/`
+
+Contiene el schema de base de datos.
+
+## Base de datos
+
+El proyecto usa MySQL con Prisma.
+
+Archivo principal:
+
+```txt
+prisma/schema.prisma
+```
+
+El Prisma Client se genera en:
+
+```txt
+node_modules/@prisma/client
+```
+
+Import recomendado:
 
 ```ts
-export async function GET() {}
-export async function POST() {}
+import { PrismaClient } from "@prisma/client";
 ```
 
----
+## Variables de entorno
 
-# 🌿 Uso de Git (OBLIGATORIO)
+Crear o actualizar `.env`:
 
-## ❌ Nunca trabajar en main
+```env
+DATABASE_URL="mysql://USER:PASSWORD@localhost:3306/medismart"
+JWT_SECRET="cambia_esto_por_un_secreto_largo_y_seguro"
+```
 
-Usar ramas:
+## Instalacion
 
 ```bash
-feature/auth
-feature/appointments
-feature/prioritization
+npm install
 ```
 
----
-
-## 📌 Commits
-
-Formato:
+Generar Prisma Client:
 
 ```bash
-feat: add appointment creation
-fix: login validation error
-chore: project setup
+npx prisma generate
 ```
 
----
+Crear migracion inicial:
 
-# 👥 Organización del equipo
+```bash
+npx prisma migrate dev --name init_backend_mysql
+```
 
-Cada integrante debe trabajar en:
+Ejecutar desarrollo:
 
-* un módulo específico
-* una rama específica
+```bash
+npm run dev
+```
 
-Ejemplo:
+## Scripts
 
-| Persona  | Módulo         |
-| -------- | -------------- |
-| Backend  | API + services |
-| Frontend | UI             |
-| DB       | Prisma         |
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+```
 
----
+Verificacion TypeScript:
 
-# ⚠️ Antes de subir código
+```bash
+npx tsc --noEmit
+```
 
-Verificar:
+## Modelos principales
 
-* ¿Está en la carpeta correcta?
-* ¿No rompe la arquitectura?
-* ¿No duplica lógica?
-* ¿Usa services?
+### User
 
----
+Campos principales:
 
-# 🚀 Nota final
+- `id`
+- `name`
+- `email`
+- `password`
+- `role`
+- `isActive`
+- `createdAt`
+- `updatedAt`
 
-Este proyecto no es solo frontend.
+### DoctorProfile
 
-La parte más importante es:
+Campos principales:
 
-* priorización de citas
-* reasignación automática
-* lógica del sistema
+- `id`
+- `userId`
+- `specialtyId`
+- `licenseNumber`
+- `createdAt`
+- `updatedAt`
 
----
+### Specialty
 
-**Si no sabes dónde poner algo → pregunta antes de hacerlo.**
+Campos principales:
+
+- `id`
+- `name`
+- `description`
+- `isActive`
+- `createdAt`
+- `updatedAt`
+
+## Roles
+
+```txt
+PACIENTE
+MEDICO
+ADMIN
+```
+
+## Endpoints actuales
+
+### Auth
+
+```txt
+POST /api/auth/register
+POST /api/auth/login
+GET  /api/auth/me
+POST /api/auth/logout
+```
+
+### Admin - Medicos
+
+```txt
+GET   /api/admin/doctors
+POST  /api/admin/doctors
+GET   /api/admin/doctors/:id
+PUT   /api/admin/doctors/:id
+PATCH /api/admin/doctors/:id
+```
+
+### Admin - Especialidades
+
+```txt
+GET   /api/admin/specialties
+POST  /api/admin/specialties
+GET   /api/admin/specialties/:id
+PUT   /api/admin/specialties/:id
+PATCH /api/admin/specialties/:id
+```
+
+## Autenticacion
+
+La autenticacion usa JWT.
+
+El token puede enviarse por:
+
+- Cookie `token`
+- Header `Authorization: Bearer <token>`
+
+Los helpers principales estan en:
+
+```txt
+lib/auth.ts
+```
+
+Funciones principales:
+
+- `hashPassword`
+- `comparePassword`
+- `generateToken`
+- `verifyToken`
+- `getAuthUser`
+- `requireAuth`
+- `requireRole`
+
+## Reglas importantes
+
+- No usar carpeta `src/`.
+- No guardar passwords en texto plano.
+- No devolver `password` en respuestas JSON.
+- Solo `ADMIN` puede gestionar medicos y especialidades.
+- Usar `@/lib/prisma` para acceder al cliente Prisma compartido.
+- Mantener API Routes como controladores delgados.
+- Mover logica de negocio a `services/` cuando crezca.
+
+## Flujo backend
+
+```txt
+Cliente
+  -> app/api/.../route.ts
+  -> validacion
+  -> lib/auth.ts
+  -> service o prisma
+  -> respuesta JSON
+```
+
+## Comandos utiles de Prisma
+
+```bash
+npx prisma generate
+npx prisma migrate dev
+npx prisma studio
+```
+
+## Estado de verificacion
+
+El proyecto debe pasar:
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm run build
+```
