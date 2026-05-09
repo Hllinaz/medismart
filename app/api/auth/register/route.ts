@@ -8,6 +8,23 @@ function isUniqueConstraintError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 }
 
+function getErrorDetails(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      code:
+        typeof error === "object" && error !== null && "code" in error
+          ? String(error.code)
+          : undefined,
+    };
+  }
+
+  return {
+    message: "Error desconocido",
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -66,10 +83,26 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
+    const details = getErrorDetails(error);
+
+    console.error("[auth/register] Error al registrar usuario", {
+      details,
+      databaseUrlHost: process.env.DATABASE_URL?.replace(
+        /mysql:\/\/.*:.*@([^/]+)\/.*/,
+        "$1",
+      ),
+    });
+
     if (isUniqueConstraintError(error)) {
       return NextResponse.json({ error: "Email ya registrado" }, { status: 409 });
     }
 
-    return NextResponse.json({ error: "Error al registrar usuario" }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "Error al registrar usuario",
+        ...(process.env.NODE_ENV !== "production" ? { details } : {}),
+      },
+      { status: 500 },
+    );
   }
 }
