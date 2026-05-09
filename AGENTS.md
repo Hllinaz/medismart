@@ -26,6 +26,7 @@ La IA debe actuar como Arquitecto de Software y Senior Developer especializado e
 - Prisma 6.
 - MySQL.
 - Backend con API Routes.
+- Frontend funcional por rutas.
 
 ## Stack actual
 
@@ -33,8 +34,8 @@ La IA debe actuar como Arquitecto de Software y Senior Developer especializado e
 - React 19.2.4
 - TypeScript
 - Prisma 6.19.x
-- MySQL
-- Prisma Client clasico generado en `node_modules/@prisma/client`
+- MySQL 8.4 via Docker
+- Prisma Client clasico en `node_modules/@prisma/client`
 - JWT para autenticacion
 - bcryptjs para hash de passwords
 
@@ -45,93 +46,77 @@ El proyecto no usa carpeta `src/`.
 ```txt
 app/
   api/
+  dashboard/
+  login/
+  register/
   globals.css
   layout.tsx
   page.tsx
+
+components/
+  app-shell/
+  ui/
 
 lib/
   auth.ts
   prisma.ts
 
-services/
-
 prisma/
   schema.prisma
+
+docker-compose.yml
 ```
 
-## Reglas por carpeta
-
-### `app/`
-
-Contiene vistas, layouts y API Routes de Next.js.
-
-Reglas:
-
-- Usar App Router.
-- Preferir Server Components.
-- Usar `"use client"` solo cuando sea necesario.
-- No colocar logica de negocio compleja en componentes.
-
-### `app/api/`
-
-Contiene controladores HTTP.
-
-Reglas:
-
-- Validar input.
-- Validar autenticacion y roles.
-- Llamar helpers o services.
-- Devolver respuestas JSON.
-- No devolver passwords.
-- No mezclar UI con logica backend.
-
-### `lib/`
-
-Contiene configuracion y utilidades compartidas.
-
-Archivos actuales:
-
-- `lib/prisma.ts`: singleton de Prisma Client.
-- `lib/auth.ts`: helpers de autenticacion, JWT y roles.
-
-Reglas:
-
-- Mantener codigo reutilizable.
-- Evitar dependencias innecesarias.
-- No duplicar helpers.
-
-### `services/`
-
-Contiene logica de negocio reutilizable.
-
-Reglas:
-
-- No usar React.
-- No manejar objetos HTTP directamente.
-- No renderizar UI.
-- Centralizar reglas del dominio cuando la logica crezca.
-
-### `prisma/`
-
-Contiene el modelo de base de datos.
-
-Reglas:
-
-- Usar `prisma/schema.prisma`.
-- Provider actual: `mysql`.
-- Generator actual: `prisma-client-js`.
-- Importar Prisma Client desde `@prisma/client`.
-
-## Flujo backend esperado
+## Rutas frontend actuales
 
 ```txt
-Request HTTP
-  -> app/api/.../route.ts
-  -> validacion de input
-  -> auth/roles en lib/auth.ts
-  -> Prisma o service
-  -> respuesta JSON
+/                              -> home
+/register                      -> registro de paciente
+/login                         -> login
+/dashboard                     -> resumen del usuario autenticado
+/dashboard/profile             -> perfil y logout
+/dashboard/admin/specialties   -> crear/listar especialidades
+/dashboard/admin/doctors       -> crear/listar medicos
 ```
+
+Reglas frontend:
+
+- Usar App Router.
+- Preferir Server Components por defecto.
+- Usar `"use client"` solo en pantallas con estado, formularios, efectos o eventos.
+- Mantener componentes reutilizables en `components/ui`.
+- Mantener navegacion compartida en `components/app-shell`.
+- No reintroducir `components/backend-tester`.
+- No crear landing pages decorativas para herramientas internas.
+
+## Rutas backend actuales
+
+```txt
+POST /api/auth/register
+POST /api/auth/login
+GET  /api/auth/me
+POST /api/auth/logout
+
+GET   /api/admin/doctors
+POST  /api/admin/doctors
+GET   /api/admin/doctors/:id
+PUT   /api/admin/doctors/:id
+PATCH /api/admin/doctors/:id
+
+GET   /api/admin/specialties
+POST  /api/admin/specialties
+GET   /api/admin/specialties/:id
+PUT   /api/admin/specialties/:id
+PATCH /api/admin/specialties/:id
+```
+
+Reglas backend:
+
+- Validar input en API Routes.
+- Validar autenticacion y roles con `lib/auth.ts`.
+- No devolver passwords.
+- Mantener respuestas JSON claras.
+- Evitar logica de negocio compleja dentro de componentes React.
 
 ## Autenticacion y permisos
 
@@ -147,24 +132,54 @@ Reglas:
 - JWT firmado con `JWT_SECRET`.
 - Token aceptado desde cookie `token` o header `Authorization: Bearer`.
 - Rutas admin protegidas con `requireRole(request, "ADMIN")`.
-- Nunca devolver `password` en respuestas JSON.
+- Registro publico solo crea usuarios `PACIENTE`.
 
-## Prisma
+## Prisma y base de datos
 
-El cliente Prisma se genera en `node_modules/@prisma/client`.
+Prisma usa MySQL.
 
-Comandos habituales:
+```prisma
+generator client {
+  provider = "prisma-client-js"
+}
 
-```bash
-npx prisma generate
-npx prisma migrate dev --name init_backend_mysql
-npx prisma studio
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
 ```
 
-El datasource usa:
+El datasource local recomendado es:
 
 ```env
-DATABASE_URL="mysql://USER:PASSWORD@localhost:3306/medismart"
+DATABASE_URL="mysql://medismart:medismart@127.0.0.1:3306/medismart"
+```
+
+Notas:
+
+- `127.0.0.1` evita problemas de resolucion de `localhost`.
+- `_prisma_migrations` puede existir en MySQL si se usaron migraciones.
+- El proyecto actualmente no versiona `prisma/migrations/`.
+- Para sincronizar rapido en desarrollo se puede usar `npx prisma db push`.
+
+## Docker local
+
+MySQL se levanta con:
+
+```bash
+npm run db:up
+```
+
+Comandos utiles:
+
+```bash
+npm run db:up
+npm run db:down
+npm run db:logs
+npm run db:generate
+npm run db:migrate
+npm run db:studio
+npm run setup:db
 ```
 
 ## Alias TypeScript
@@ -179,7 +194,7 @@ Ejemplo:
 
 ```ts
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { AppNav } from "@/components/app-shell/AppNav";
 ```
 
 ## Metodologia obligatoria
@@ -211,23 +226,22 @@ Despues de aprobacion:
 - Cambiar archivos sin aprobacion.
 - Crear archivos innecesarios.
 - Reintroducir carpeta `src/`.
+- Reintroducir `components/backend-tester`.
 - Usar Prisma 7 sin aprobacion previa.
 - Cambiar MySQL por otro motor sin aprobacion.
 - Guardar passwords en texto plano.
 - Devolver passwords en APIs.
-- Romper la arquitectura App Router.
 - Mezclar UI, controladores y logica de negocio sin separacion.
 
-## Buenas practicas
+## Verificacion esperada
 
-- Componentes pequenos y reutilizables.
-- Server Components por defecto.
-- Client Components solo cuando haya estado, eventos o APIs del navegador.
-- Fetching server-side cuando sea posible.
-- Validaciones claras en API Routes.
-- Respuestas JSON consistentes.
-- Separacion entre `app/api`, `lib` y `services`.
-- Nombres claros y codigo tipado.
+Antes de cerrar cambios relevantes:
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm run build
+```
 
 ## Filosofia
 
