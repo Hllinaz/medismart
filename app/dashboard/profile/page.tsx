@@ -1,85 +1,89 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
 import { useEffect, useState } from "react";
-import { AppNav } from "@/components/app-shell/AppNav";
-import { JsonBlock } from "@/components/ui/JsonBlock";
-import { Message } from "@/components/ui/Message";
 
 export default function ProfilePage() {
-  const router = useRouter();
-  const [result, setResult] = useState<unknown>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  async function loadProfile() {
-    setLoading(true);
-    setMessage(null);
-
-    try {
-      const response = await fetch("/api/auth/me", {
-        credentials: "include",
-      });
-      const data = await response.json();
-
-      setResult(data);
-      setMessage(response.ok ? "Perfil cargado." : data.error);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Error inesperado");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function logout() {
-    const response = await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    });
-    const data = await response.json();
-
-    setResult(data);
-    router.push("/login");
-  }
+  const { user, logout, loading } = useAuth();
+  const [completedCount, setCompletedCount] = useState<number | null>(null);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void loadProfile();
-    });
-  }, []);
+    if (user?.role !== "PACIENTE") return;
+
+    fetch("/api/appointments", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setCompletedCount(data.filter((a: { status: string }) => a.status === "COMPLETED").length);
+        }
+      })
+      .catch(() => {});
+  }, [user]);
+
+  if (!user) return null;
 
   return (
-    <main className="min-h-screen bg-zinc-100 text-zinc-950">
-      <AppNav />
-      <section className="mx-auto grid max-w-3xl gap-5 px-4 py-8 sm:px-6 lg:px-8">
-        <div>
-          <h1 className="text-3xl font-semibold">Perfil</h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            Consume GET /api/auth/me y permite cerrar sesion.
-          </p>
+    <div>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-zinc-900">Mi perfil</h1>
+        <p className="mt-1 text-sm text-zinc-600">Informacion de tu cuenta.</p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="rounded border border-zinc-300 bg-white p-6">
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-medium uppercase text-zinc-500">Nombre</p>
+              <p className="mt-1 text-sm font-semibold text-zinc-900">{user.name}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase text-zinc-500">Email</p>
+              <p className="mt-1 text-sm text-zinc-900">{user.email}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase text-zinc-500">Rol</p>
+              <span className="mt-1 inline-block rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                {user.role}
+              </span>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase text-zinc-500">Estado</p>
+              <p className="mt-1 text-sm text-zinc-900">
+                {user.isActive ? "Activo" : "Inactivo"}
+              </p>
+            </div>
+          </div>
         </div>
 
-        {message ? <Message type={loading ? "info" : "success"}>{message}</Message> : null}
+        {user.role === "PACIENTE" && (
+          <div className="rounded border border-zinc-300 bg-white p-6">
+            <h2 className="text-sm font-semibold text-zinc-900">Historial medico</h2>
+            <p className="mt-4 text-3xl font-bold text-emerald-700">
+              {completedCount ?? "..."}
+            </p>
+            <p className="mt-1 text-sm text-zinc-600">citas completadas</p>
+            <a
+              href="/dashboard/appointments"
+              className="mt-4 inline-block text-sm font-medium text-emerald-700 hover:text-emerald-800"
+            >
+              Ver todas las citas &rarr;
+            </a>
+          </div>
+        )}
 
-        <div className="flex flex-wrap gap-3">
-          <button
-            className="h-10 border border-zinc-300 bg-white px-4 text-sm font-semibold hover:border-emerald-700"
-            type="button"
-            onClick={() => void loadProfile()}
-          >
-            Recargar perfil
-          </button>
-          <button
-            className="h-10 bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800"
-            type="button"
-            onClick={() => void logout()}
-          >
-            Cerrar sesion
-          </button>
+        <div className="rounded border border-zinc-300 bg-white p-6">
+          <div className="mt-8 border-t border-zinc-200 pt-6">
+            <button
+              type="button"
+              onClick={() => void logout()}
+              disabled={loading}
+              className="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+            >
+              Cerrar sesion
+            </button>
+          </div>
         </div>
-
-        {result ? <JsonBlock data={result} /> : null}
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }

@@ -15,26 +15,29 @@ enum Role {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  name          String
-  email         String         @unique
-  password      String
-  role          Role           @default(PACIENTE)
-  isActive      Boolean        @default(true)
-  doctorProfile DoctorProfile?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                   String        @id @default(cuid())
+  name                 String
+  email                String        @unique
+  password             String
+  role                 Role          @default(PACIENTE)
+  isActive             Boolean       @default(true)
+  doctorProfile        DoctorProfile?
+  patientAppointments  Appointment[] @relation("PatientAppointments")
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 }
 
 model DoctorProfile {
-  id            String    @id @default(cuid())
-  userId        String    @unique
-  specialtyId   String
-  licenseNumber String?
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  specialty     Specialty @relation(fields: [specialtyId], references: [id])
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                 String               @id @default(cuid())
+  userId             String               @unique
+  specialtyId        String
+  licenseNumber      String?
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialty          Specialty            @relation(fields: [specialtyId], references: [id])
+  availabilities     DoctorAvailability[]
+  doctorAppointments Appointment[]        @relation("DoctorAppointments")
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 }
 
 model Specialty {
@@ -45,4 +48,44 @@ model Specialty {
   doctorProfiles DoctorProfile[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+}
+
+model DoctorAvailability {
+  id          String        @id @default(cuid())
+  doctorId    String
+  dayOfWeek   Int           // 0-6 (lunes-domingo)
+  startTime   String        // HH:MM formato
+  endTime     String        // HH:MM formato
+  isActive    Boolean       @default(true)
+  doctor      DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([doctorId])
+  @@unique([doctorId, dayOfWeek, startTime, endTime])
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model Appointment {
+  id        String            @id @default(cuid())
+  patientId String
+  doctorId  String
+  dateTime  DateTime
+  status    AppointmentStatus @default(PENDING)
+  reason    String?           @db.VarChar(500)
+  notes     String?           @db.VarChar(1000)
+  patient   User              @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
+  doctor    DoctorProfile     @relation("DoctorAppointments", fields: [doctorId], references: [id], onDelete: Cascade)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@unique([doctorId, dateTime])
 }

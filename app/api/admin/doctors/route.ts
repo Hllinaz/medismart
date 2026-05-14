@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
             updatedAt: true,
           },
         },
-        specialty: true,
+        specialty: { select: { id: true, name: true } },
       },
     });
 
