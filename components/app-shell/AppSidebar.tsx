@@ -8,6 +8,7 @@ import { useState } from "react";
 const roleLinks = {
   PACIENTE: [
     { href: "/dashboard", label: "Inicio" },
+    { href: "/dashboard/doctors", label: "Doctores" },
     { href: "/dashboard/appointments", label: "Mis Citas" },
     { href: "/dashboard/appointments/new", label: "Agendar Cita" },
     { href: "/dashboard/profile", label: "Perfil" },
