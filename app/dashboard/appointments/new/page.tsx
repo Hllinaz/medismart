@@ -19,7 +19,9 @@ export default function BookAppointmentPage() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     specialtyId: "",
+    specialtyName: "",
     doctorId: "",
+    doctorName: "",
     dateTime: "",
     reason: "",
   });
@@ -137,10 +139,11 @@ export default function BookAppointmentPage() {
             </h2>
             <SpecialtySelector
               value={form.specialtyId}
-              onChange={(specialtyId) =>
+              onChange={(specialtyId, specialtyName) =>
                 setForm((current) => ({
                   ...current,
                   specialtyId,
+                  specialtyName: specialtyName ?? "",
                   doctorId: "",
                   dateTime: "",
                 }))
@@ -157,8 +160,8 @@ export default function BookAppointmentPage() {
             <DoctorList
               specialtyId={form.specialtyId}
               selectedDoctorId={form.doctorId}
-              onSelectDoctor={(doctorId) =>
-                setForm((current) => ({ ...current, doctorId, dateTime: "" }))
+              onSelectDoctor={(doctorId, doctorName) =>
+                setForm((current) => ({ ...current, doctorId, doctorName: doctorName ?? "", dateTime: "" }))
               }
             />
           </div>
@@ -188,12 +191,14 @@ export default function BookAppointmentPage() {
               <div>
                 <p className="text-xs font-medium uppercase text-zinc-500">Especialidad</p>
                 <p className="text-sm font-semibold text-zinc-900">
-                  {form.specialtyId}
+                  {form.specialtyName || form.specialtyId}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-medium uppercase text-zinc-500">Medico ID</p>
-                <p className="text-sm text-zinc-900">{form.doctorId}</p>
+                <p className="text-xs font-medium uppercase text-zinc-500">Medico</p>
+                <p className="text-sm text-zinc-900">
+                  {form.doctorName || form.doctorId}
+                </p>
               </div>
               <div>
                 <p className="text-xs font-medium uppercase text-zinc-500">Fecha y hora</p>

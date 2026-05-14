@@ -9,7 +9,7 @@ type Specialty = {
 
 type SpecialtySelectorProps = {
   value: string;
-  onChange: (specialtyId: string) => void;
+  onChange: (specialtyId: string, specialtyName?: string) => void;
 };
 
 export function SpecialtySelector({ value, onChange }: SpecialtySelectorProps) {
@@ -20,13 +20,11 @@ export function SpecialtySelector({ value, onChange }: SpecialtySelectorProps) {
   useEffect(() => {
     async function loadSpecialties() {
       try {
-        const response = await fetch("/api/admin/specialties", {
-          credentials: "include",
-        });
+        const response = await fetch("/api/specialties");
         const data = await response.json();
 
         if (response.ok && data.specialties) {
-          setSpecialties(data.specialties.filter((s: Specialty) => s.isActive));
+          setSpecialties(data.specialties);
         } else {
           setError("No se pudieron cargar las especialidades");
         }
@@ -47,7 +45,10 @@ export function SpecialtySelector({ value, onChange }: SpecialtySelectorProps) {
       </label>
       <select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          const selected = specialties.find((s) => s.id === e.target.value);
+          onChange(e.target.value, selected?.name);
+        }}
         disabled={loading || !!error}
         className="mt-1 w-full border border-zinc-300 bg-white px-3 py-2 text-sm disabled:bg-zinc-100"
       >

@@ -3,15 +3,15 @@ import { useState, useEffect } from "react";
 type Doctor = {
   id: string;
   licenseNumber: string | null;
-  specialtyId: string;
-  user: { name: string; email: string; isActive: boolean };
+  specialtyId?: string;
+  user: { name: string; email: string };
   specialty: { id: string; name: string };
 };
 
 type DoctorListProps = {
   specialtyId: string;
   selectedDoctorId: string;
-  onSelectDoctor: (doctorId: string) => void;
+  onSelectDoctor: (doctorId: string, doctorName?: string) => void;
 };
 
 export function DoctorList({
@@ -31,15 +31,12 @@ export function DoctorList({
     setLoading(true);
     setError(null);
 
-    fetch("/api/admin/doctors", {
-      credentials: "include",
-      signal: controller.signal,
-    })
+    fetch("/api/doctors", { signal: controller.signal })
       .then((response) => response.json())
       .then((data) => {
         if (data.doctors) {
           const filtered = data.doctors.filter(
-            (d: Doctor) => d.specialtyId === specialtyId && d.user.isActive
+            (d: Doctor) => d.specialty.id === specialtyId
           );
           setDoctors(filtered);
         } else {
@@ -89,7 +86,7 @@ export function DoctorList({
           <button
             key={doctor.id}
             type="button"
-            onClick={() => onSelectDoctor(doctor.id)}
+            onClick={() => onSelectDoctor(doctor.id, doctor.user.name)}
             className={`rounded border px-4 py-3 text-left transition ${
               selectedDoctorId === doctor.id
                 ? "border-blue-500 bg-blue-50"

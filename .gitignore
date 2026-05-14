@@ -33,6 +33,13 @@ yarn-error.log*
 # env files
 .env
 
+# mcp-server
+mcp-server/node_modules
+
+# whatsapp web
+.wwebjs_auth/
+.wwebjs_cache/
+
 # vercel
 .vercel
 

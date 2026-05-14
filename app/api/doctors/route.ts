@@ -24,7 +24,12 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ doctors });
+    const mapped = doctors.map((d) => ({
+      ...d,
+      specialtyId: d.specialty.id,
+    }));
+
+    return NextResponse.json({ doctors: mapped });
   } catch {
     return NextResponse.json({ error: "Error al obtener doctores" }, { status: 500 });
   }

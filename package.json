@@ -13,8 +13,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "setup:db": "npm run db:up && npm run db:generate && npm run db:migrate",
-    "db:seed": "npx prisma db seed"
+    "db:seed": "npx prisma db seed",
+    "mcp:dev": "cd mcp-server && npm run dev"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -25,13 +25,16 @@
     "jsonwebtoken": "^9.0.3",
     "next": "16.2.4",
     "prisma": "^6.19.3",
+    "qrcode": "^1.5.4",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "whatsapp-web.js": "^1.26.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
