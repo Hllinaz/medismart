@@ -113,6 +113,11 @@ Rutas disponibles:
 /dashboard/profile             -> perfil y logout
 /dashboard/admin/specialties   -> crear/listar especialidades
 /dashboard/admin/doctors       -> crear/listar medicos
+/dashboard/admin/availability  -> crear/listar horarios medicos
+/dashboard/appointments        -> agendar/listar/cancelar/evaluar citas
+/dashboard/history             -> historial de citas por estado
+/dashboard/doctor/schedule     -> agenda del medico autenticado
+/dashboard/admin/reports       -> reportes administrativos
 ```
 
 Notas:
@@ -153,6 +158,36 @@ PUT   /api/admin/specialties/:id
 PATCH /api/admin/specialties/:id
 ```
 
+### Disponibilidad
+
+```txt
+GET   /api/availability
+POST  /api/availability
+GET   /api/availability/:id
+PUT   /api/availability/:id
+PATCH /api/availability/:id
+```
+
+### Citas
+
+```txt
+GET  /api/appointments
+POST /api/appointments
+GET  /api/appointments/:id
+PATCH /api/appointments/:id
+POST /api/appointments/:id/cancel
+POST /api/appointments/:id/reassign
+GET  /api/appointments/:id/evaluation
+POST /api/appointments/:id/evaluation
+```
+
+### Notificaciones y reportes
+
+```txt
+GET /api/notifications
+GET /api/admin/reports
+```
+
 ## Base de datos
 
 El schema principal esta en:
@@ -165,7 +200,13 @@ Modelos principales:
 
 - `User`
 - `DoctorProfile`
+- `PatientProfile`
 - `Specialty`
+- `DoctorSpecialty`
+- `Availability`
+- `Appointment`
+- `Notification`
+- `Evaluation`
 
 Roles:
 
@@ -173,6 +214,15 @@ Roles:
 PACIENTE
 MEDICO
 ADMIN
+```
+
+Estados y enums principales:
+
+```txt
+UserStatus: ACTIVE, INACTIVE, BLOCKED
+AppointmentStatus: SCHEDULED, CANCELLED, PENDING_REASSIGNMENT, COMPLETED
+Priority: LOW, NORMAL, HIGH
+NotificationType: REMINDER, CANCELLATION, REASSIGNMENT, SYSTEM
 ```
 
 El Prisma Client se genera en:
