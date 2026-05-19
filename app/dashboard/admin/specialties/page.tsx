@@ -1,11 +1,19 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { AppNav } from "@/components/app-shell/AppNav";
-import { Field } from "@/components/ui/Field";
-import { FormButton } from "@/components/ui/FormButton";
-import { JsonBlock } from "@/components/ui/JsonBlock";
-import { Message } from "@/components/ui/Message";
+
+import { EmptyState } from "@/components/appointments/EmptyState";
+import { SpecialtyCard } from "@/components/admin/SpecialtyCard";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
+
+type Role = "PACIENTE" | "MEDICO" | "ADMIN";
+
+type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+};
 
 type Specialty = {
   id: string;
@@ -15,61 +23,115 @@ type Specialty = {
 };
 
 export default function SpecialtiesPage() {
+  const [user, setUser] =
+    useState<AuthUser | null>(null);
+
   const [form, setForm] = useState({
     name: "Medicina General",
-    description: "Atencion primaria y consulta general",
+
+    description:
+      "Atencion primaria y consulta general",
   });
-  const [specialties, setSpecialties] = useState<Specialty[]>([]);
-  const [result, setResult] = useState<unknown>(null);
-  const [message, setMessage] = useState<string | null>(null);
+
+  const [specialties, setSpecialties] =
+    useState<Specialty[]>([]);
+
+  const [message, setMessage] = useState<
+    string | null
+  >(null);
+
   const [loading, setLoading] = useState(false);
 
   async function loadSpecialties() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/admin/specialties", {
-        credentials: "include",
-      });
-      const data = await response.json();
+      const [meResponse, specialtiesResponse] =
+        await Promise.all([
+          fetch("/api/auth/me", {
+            credentials: "include",
+          }),
 
-      setResult(data);
+          fetch("/api/admin/specialties", {
+            credentials: "include",
+          }),
+        ]);
 
-      if (!response.ok) {
-        setMessage(data.error ?? "No se pudieron cargar especialidades.");
+      const meData = await meResponse.json();
+
+      const specialtiesData =
+        await specialtiesResponse.json();
+
+      if (meResponse.ok) {
+        setUser(meData.user);
+      }
+
+      if (!specialtiesResponse.ok) {
+        setMessage(
+          specialtiesData.error ??
+            "No se pudieron cargar especialidades."
+        );
+
         return;
       }
 
-      setSpecialties(data.specialties ?? []);
-      setMessage("Especialidades cargadas.");
+      setSpecialties(
+        specialtiesData.specialties ?? []
+      );
+
+      setMessage(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Error inesperado");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Error inesperado"
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
+
     setLoading(true);
 
     try {
-      const response = await fetch("/api/admin/specialties", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      const response = await fetch(
+        "/api/admin/specialties",
+        {
+          method: "POST",
+
+          credentials: "include",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify(form),
+        }
+      );
+
       const data = await response.json();
 
-      setResult(data);
-      setMessage(response.ok ? "Especialidad creada." : data.error);
+      setMessage(
+        response.ok
+          ? "Especialidad creada correctamente."
+          : data.error
+      );
 
       if (response.ok) {
         await loadSpecialties();
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Error inesperado");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Error inesperado"
+      );
     } finally {
       setLoading(false);
     }
@@ -82,67 +144,197 @@ export default function SpecialtiesPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-zinc-100 text-zinc-950">
-      <AppNav />
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-8">
+    <DashboardShell
+      role={user?.role}
+      user={user}
+    >
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        
         <div>
-          <h1 className="text-3xl font-semibold">Especialidades</h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            Pantalla admin para crear y listar especialidades.
+          <h1 className="text-4xl font-bold text-slate-900">
+            Especialidades
+          </h1>
+
+          <p className="mt-3 text-slate-500">
+            Gestiona las especialidades medicas del sistema.
           </p>
         </div>
 
-        {message ? <Message type="info">{message}</Message> : null}
+        <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
+          <p className="text-sm font-semibold text-slate-500">
+            Total especialidades
+          </p>
 
-        <div className="grid gap-5 lg:grid-cols-[420px_minmax(0,1fr)]">
-          <form className="grid h-fit gap-4 border border-zinc-300 bg-white p-5" onSubmit={handleSubmit}>
-            <Field
-              label="Nombre"
-              value={form.name}
-              onChange={(value) => setForm((current) => ({ ...current, name: value }))}
-            />
-            <Field
-              label="Descripcion"
-              value={form.description}
-              onChange={(value) =>
-                setForm((current) => ({ ...current, description: value }))
-              }
-            />
-            <FormButton loading={loading}>Crear especialidad</FormButton>
-          </form>
-
-          <div className="grid gap-4">
-            <div className="border border-zinc-300 bg-white">
-              <div className="border-b border-zinc-200 px-4 py-3">
-                <h2 className="font-semibold">Listado</h2>
-              </div>
-              <div className="divide-y divide-zinc-200">
-                {specialties.map((specialty) => (
-                  <article className="px-4 py-3" key={specialty.id}>
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-semibold">{specialty.name}</h3>
-                      <span className="text-xs font-medium text-zinc-500">
-                        {specialty.isActive ? "Activa" : "Inactiva"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-zinc-600">
-                      {specialty.description ?? "Sin descripcion"}
-                    </p>
-                    <p className="mt-2 text-xs text-zinc-400">{specialty.id}</p>
-                  </article>
-                ))}
-                {!specialties.length ? (
-                  <p className="px-4 py-6 text-sm text-zinc-500">
-                    No hay especialidades para mostrar.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            {result ? <JsonBlock data={result} /> : null}
-          </div>
+          <p className="mt-1 text-3xl font-bold text-teal-700">
+            {specialties.length}
+          </p>
         </div>
-      </section>
-    </main>
+      </div>
+
+      {message ? (
+        <div className="mb-6 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-4 text-sm font-medium text-teal-800">
+          {message}
+        </div>
+      ) : null}
+
+      <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+        
+        <form
+          className="
+            grid
+            h-fit
+            gap-4
+            rounded-3xl
+            bg-white
+            p-6
+            shadow-sm
+          "
+          onSubmit={handleSubmit}
+        >
+          <h2 className="text-2xl font-bold text-slate-900">
+            Nueva especialidad
+          </h2>
+
+          <InputField
+            label="Nombre"
+            value={form.name}
+            onChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                name: value,
+              }))
+            }
+          />
+
+          <TextAreaField
+            label="Descripcion"
+            value={form.description}
+            onChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                description: value,
+              }))
+            }
+          />
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="
+              h-12
+              rounded-xl
+              bg-teal-600
+              text-sm
+              font-semibold
+              text-white
+              transition
+              hover:bg-teal-700
+              disabled:opacity-60
+            "
+          >
+            {loading
+              ? "Procesando..."
+              : "Crear especialidad"}
+          </button>
+        </form>
+
+        <section className="grid gap-4">
+          {specialties.length ? (
+            specialties.map((specialty) => (
+              <SpecialtyCard
+                key={specialty.id}
+                specialty={specialty}
+              />
+            ))
+          ) : (
+            <EmptyState
+              title="No hay especialidades registradas"
+              description="Las especialidades creadas apareceran en esta seccion."
+            />
+          )}
+        </section>
+      </div>
+    </DashboardShell>
+  );
+}
+
+function InputField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-semibold text-slate-700">
+        {label}
+      </span>
+
+      <input
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        className="
+          h-12
+          rounded-xl
+          border
+          border-slate-200
+          bg-slate-50
+          px-4
+          text-sm
+          outline-none
+          transition
+          focus:border-teal-500
+          focus:bg-white
+          focus:ring-4
+          focus:ring-teal-100
+        "
+      />
+    </label>
+  );
+}
+
+function TextAreaField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-semibold text-slate-700">
+        {label}
+      </span>
+
+      <textarea
+        rows={5}
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        className="
+          rounded-xl
+          border
+          border-slate-200
+          bg-slate-50
+          px-4
+          py-3
+          text-sm
+          outline-none
+          transition
+          focus:border-teal-500
+          focus:bg-white
+          focus:ring-4
+          focus:ring-teal-100
+        "
+      />
+    </label>
   );
 }

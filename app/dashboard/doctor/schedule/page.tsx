@@ -1,41 +1,100 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AppNav } from "@/components/app-shell/AppNav";
-import { JsonBlock } from "@/components/ui/JsonBlock";
-import { Message } from "@/components/ui/Message";
+
+import { AppointmentCard } from "@/components/appointments/AppointmentCard";
+import { EmptyState } from "@/components/appointments/EmptyState";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
+
+type Role = "PACIENTE" | "MEDICO" | "ADMIN";
+
+type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+};
 
 type Appointment = {
   id: string;
   appointmentDate: string;
   status: string;
   priority: string;
-  patient: { user: { name: string; email: string } };
+
+  patient: {
+    user: {
+      name: string;
+      email: string;
+    };
+  };
+
+  doctor: {
+    user: {
+      name: string;
+    };
+  };
 };
 
 export default function DoctorSchedulePage() {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [result, setResult] = useState<unknown>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [user, setUser] =
+    useState<AuthUser | null>(null);
+
+  const [appointments, setAppointments] =
+    useState<Appointment[]>([]);
+
+  const [message, setMessage] = useState<
+    string | null
+  >(null);
+
+  const [loading, setLoading] =
+    useState(false);
 
   async function loadSchedule() {
+    setLoading(true);
+
     try {
-      const response = await fetch("/api/appointments", {
-        credentials: "include",
-      });
-      const data = await response.json();
+      const [meResponse, appointmentsResponse] =
+        await Promise.all([
+          fetch("/api/auth/me", {
+            credentials: "include",
+          }),
 
-      setResult(data);
+          fetch("/api/appointments", {
+            credentials: "include",
+          }),
+        ]);
 
-      if (!response.ok) {
-        setMessage(data.error ?? "No se pudo cargar agenda.");
+      const meData = await meResponse.json();
+
+      const appointmentsData =
+        await appointmentsResponse.json();
+
+      if (meResponse.ok) {
+        setUser(meData.user);
+      }
+
+      if (!appointmentsResponse.ok) {
+        setMessage(
+          appointmentsData.error ??
+            "No se pudo cargar agenda."
+        );
+
         return;
       }
 
-      setAppointments(data.appointments ?? []);
-      setMessage("Agenda medica cargada.");
+      setAppointments(
+        appointmentsData.appointments ?? []
+      );
+
+      setMessage(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Error inesperado");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Error inesperado"
+      );
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -45,38 +104,79 @@ export default function DoctorSchedulePage() {
     });
   }, []);
 
+  const scheduledCount = appointments.filter(
+    (appointment) =>
+      appointment.status === "SCHEDULED"
+  ).length;
+
+  const completedCount = appointments.filter(
+    (appointment) =>
+      appointment.status === "COMPLETED"
+  ).length;
+
   return (
-    <main className="min-h-screen bg-zinc-100 text-zinc-950">
-      <AppNav />
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-8">
+    <DashboardShell
+      role={user?.role}
+      user={user}
+    >
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        
         <div>
-          <h1 className="text-3xl font-semibold">Agenda medica</h1>
-          <p className="mt-2 text-sm text-zinc-600">Listado de citas asignadas al medico autenticado.</p>
+          <h1 className="text-4xl font-bold text-slate-900">
+            Agenda medica
+          </h1>
+
+          <p className="mt-3 text-slate-500">
+            Consulta y administra tus citas asignadas.
+          </p>
         </div>
 
-        {message ? <Message type="info">{message}</Message> : null}
+        <div className="flex gap-4">
+          
+          <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
+            <p className="text-sm font-semibold text-slate-500">
+              Programadas
+            </p>
 
-        <div className="border border-zinc-300 bg-white">
-          <div className="divide-y divide-zinc-200">
-            {appointments.map((appointment) => (
-              <article className="px-4 py-3" key={appointment.id}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-semibold">{appointment.patient.user.name}</h2>
-                  <span className="text-xs font-medium text-zinc-500">{appointment.status}</span>
-                  <span className="text-xs font-medium text-emerald-700">{appointment.priority}</span>
-                </div>
-                <p className="mt-1 text-sm text-zinc-600">
-                  {appointment.patient.user.email} - {new Date(appointment.appointmentDate).toLocaleString()}
-                </p>
-                <p className="mt-2 text-xs text-zinc-400">{appointment.id}</p>
-              </article>
-            ))}
-            {!appointments.length ? <p className="px-4 py-6 text-sm text-zinc-500">No hay citas.</p> : null}
+            <p className="mt-1 text-3xl font-bold text-teal-700">
+              {scheduledCount}
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
+            <p className="text-sm font-semibold text-slate-500">
+              Completadas
+            </p>
+
+            <p className="mt-1 text-3xl font-bold text-emerald-600">
+              {completedCount}
+            </p>
           </div>
         </div>
+      </div>
 
-        {result ? <JsonBlock data={result} /> : null}
+      {message ? (
+        <div className="mb-6 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-4 text-sm font-medium text-teal-800">
+          {message}
+        </div>
+      ) : null}
+
+      <section className="grid gap-4">
+        {appointments.length ? (
+          appointments.map((appointment) => (
+            <AppointmentCard
+              key={appointment.id}
+              appointment={appointment}
+              loading={loading}
+            />
+          ))
+        ) : (
+          <EmptyState
+            title="No hay citas asignadas"
+            description="Las citas medicas del doctor apareceran en esta seccion."
+          />
+        )}
       </section>
-    </main>
+    </DashboardShell>
   );
 }

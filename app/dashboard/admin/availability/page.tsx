@@ -1,14 +1,23 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { AppNav } from "@/components/app-shell/AppNav";
-import { Field } from "@/components/ui/Field";
-import { FormButton } from "@/components/ui/FormButton";
-import { JsonBlock } from "@/components/ui/JsonBlock";
-import { Message } from "@/components/ui/Message";
+
+import { AvailabilityCard } from "@/components/admin/AvailabilityCard";
+import { EmptyState } from "@/components/appointments/EmptyState";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
+
+type Role = "PACIENTE" | "MEDICO" | "ADMIN";
+
+type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+};
 
 type Doctor = {
   id: string;
+
   user: {
     name: string;
     email: string;
@@ -26,72 +35,140 @@ type Availability = {
 };
 
 export default function AvailabilityPage() {
+  const [user, setUser] =
+    useState<AuthUser | null>(null);
+
   const [form, setForm] = useState({
     doctorId: "",
     date: "",
     startTime: "",
     endTime: "",
   });
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [availability, setAvailability] = useState<Availability[]>([]);
-  const [result, setResult] = useState<unknown>(null);
-  const [message, setMessage] = useState<string | null>(null);
+
+  const [doctors, setDoctors] = useState<
+    Doctor[]
+  >([]);
+
+  const [availability, setAvailability] =
+    useState<Availability[]>([]);
+
+  const [message, setMessage] = useState<
+    string | null
+  >(null);
+
   const [loading, setLoading] = useState(false);
 
   async function loadData() {
     setLoading(true);
 
     try {
-      const [doctorsResponse, availabilityResponse] = await Promise.all([
-        fetch("/api/admin/doctors", { credentials: "include" }),
-        fetch("/api/availability", { credentials: "include" }),
+      const [
+        meResponse,
+        doctorsResponse,
+        availabilityResponse,
+      ] = await Promise.all([
+        fetch("/api/auth/me", {
+          credentials: "include",
+        }),
+
+        fetch("/api/admin/doctors", {
+          credentials: "include",
+        }),
+
+        fetch("/api/availability", {
+          credentials: "include",
+        }),
       ]);
-      const doctorsData = await doctorsResponse.json();
-      const availabilityData = await availabilityResponse.json();
 
-      setDoctors(doctorsData.doctors ?? []);
-      setAvailability(availabilityData.availability ?? []);
-      setResult({ doctors: doctorsData, availability: availabilityData });
+      const meData = await meResponse.json();
 
-      if (!doctorsResponse.ok || !availabilityResponse.ok) {
-        setMessage(doctorsData.error ?? availabilityData.error ?? "No se pudo cargar la informacion.");
+      const doctorsData =
+        await doctorsResponse.json();
+
+      const availabilityData =
+        await availabilityResponse.json();
+
+      if (meResponse.ok) {
+        setUser(meData.user);
+      }
+
+      if (
+        !doctorsResponse.ok ||
+        !availabilityResponse.ok
+      ) {
+        setMessage(
+          doctorsData.error ??
+            availabilityData.error ??
+            "No se pudo cargar informacion."
+        );
+
         return;
       }
 
-      setMessage("Horarios cargados.");
+      setDoctors(doctorsData.doctors ?? []);
+
+      setAvailability(
+        availabilityData.availability ?? []
+      );
+
+      setMessage(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Error inesperado");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Error inesperado"
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
+
     setLoading(true);
 
     try {
-      const response = await fetch("/api/availability", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          doctorId: form.doctorId,
-          date: form.date,
-          startTime: form.startTime,
-          endTime: form.endTime,
-        }),
-      });
+      const response = await fetch(
+        "/api/availability",
+        {
+          method: "POST",
+
+          credentials: "include",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            doctorId: form.doctorId,
+            date: form.date,
+            startTime: form.startTime,
+            endTime: form.endTime,
+          }),
+        }
+      );
+
       const data = await response.json();
 
-      setResult(data);
-      setMessage(response.ok ? "Horario creado." : data.error);
+      setMessage(
+        response.ok
+          ? "Horario creado correctamente."
+          : data.error
+      );
 
       if (response.ok) {
         await loadData();
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Error inesperado");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Error inesperado"
+      );
     } finally {
       setLoading(false);
     }
@@ -103,66 +180,239 @@ export default function AvailabilityPage() {
     });
   }, []);
 
+  const bookedCount = availability.filter(
+    (slot) => slot.isBooked
+  ).length;
+
+  const freeCount =
+    availability.length - bookedCount;
+
   return (
-    <main className="min-h-screen bg-zinc-100 text-zinc-950">
-      <AppNav />
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-8">
+    <DashboardShell
+      role={user?.role}
+      user={user}
+    >
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        
         <div>
-          <h1 className="text-3xl font-semibold">Horarios medicos</h1>
-          <p className="mt-2 text-sm text-zinc-600">Administra disponibilidad por medico.</p>
+          <h1 className="text-4xl font-bold text-slate-900">
+            Disponibilidad
+          </h1>
+
+          <p className="mt-3 text-slate-500">
+            Gestiona horarios medicos y disponibilidad.
+          </p>
         </div>
 
-        {message ? <Message type="info">{message}</Message> : null}
+        <div className="flex gap-4">
+          
+          <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
+            <p className="text-sm font-semibold text-slate-500">
+              Libres
+            </p>
 
-        <div className="grid gap-5 lg:grid-cols-[420px_minmax(0,1fr)]">
-          <form className="grid h-fit gap-4 border border-zinc-300 bg-white p-5" onSubmit={handleSubmit}>
-            <label className="grid gap-1 text-sm font-medium text-zinc-700">
-              Medico
-              <select
-                className="h-10 border border-zinc-300 px-3 text-sm text-zinc-950 outline-none transition focus:border-emerald-600"
-                value={form.doctorId}
-                onChange={(event) => setForm((current) => ({ ...current, doctorId: event.target.value }))}
-              >
-                <option value="">Selecciona un medico</option>
-                {doctors.map((doctor) => (
-                  <option key={doctor.id} value={doctor.id}>
-                    {doctor.user.name} - {doctor.user.email}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Field label="Fecha" type="date" value={form.date} onChange={(date) => setForm((current) => ({ ...current, date }))} />
-            <Field label="Inicio" type="datetime-local" value={form.startTime} onChange={(startTime) => setForm((current) => ({ ...current, startTime }))} />
-            <Field label="Fin" type="datetime-local" value={form.endTime} onChange={(endTime) => setForm((current) => ({ ...current, endTime }))} />
-            <FormButton loading={loading}>Crear horario</FormButton>
-          </form>
+            <p className="mt-1 text-3xl font-bold text-emerald-600">
+              {freeCount}
+            </p>
+          </div>
 
-          <div className="grid gap-4">
-            <div className="border border-zinc-300 bg-white">
-              <div className="border-b border-zinc-200 px-4 py-3">
-                <h2 className="font-semibold">Disponibilidad</h2>
-              </div>
-              <div className="divide-y divide-zinc-200">
-                {availability.map((slot) => (
-                  <article className="px-4 py-3" key={slot.id}>
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-semibold">{slot.doctor.user.name}</h3>
-                      <span className="text-xs font-medium text-zinc-500">{slot.isBooked ? "Ocupado" : "Libre"}</span>
-                    </div>
-                    <p className="mt-1 text-sm text-zinc-600">
-                      {new Date(slot.startTime).toLocaleString()} - {new Date(slot.endTime).toLocaleString()}
-                    </p>
-                    <p className="mt-2 text-xs text-zinc-400">{slot.id}</p>
-                  </article>
-                ))}
-                {!availability.length ? <p className="px-4 py-6 text-sm text-zinc-500">No hay horarios.</p> : null}
-              </div>
-            </div>
+          <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
+            <p className="text-sm font-semibold text-slate-500">
+              Ocupados
+            </p>
 
-            {result ? <JsonBlock data={result} /> : null}
+            <p className="mt-1 text-3xl font-bold text-red-600">
+              {bookedCount}
+            </p>
           </div>
         </div>
-      </section>
-    </main>
+      </div>
+
+      {message ? (
+        <div className="mb-6 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-4 text-sm font-medium text-teal-800">
+          {message}
+        </div>
+      ) : null}
+
+      <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+        
+        <form
+          className="
+            grid
+            h-fit
+            gap-4
+            rounded-3xl
+            bg-white
+            p-6
+            shadow-sm
+          "
+          onSubmit={handleSubmit}
+        >
+          <h2 className="text-2xl font-bold text-slate-900">
+            Nuevo horario
+          </h2>
+
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-slate-700">
+              Medico
+            </span>
+
+            <select
+              className="
+                h-12
+                rounded-xl
+                border
+                border-slate-200
+                bg-slate-50
+                px-4
+                text-sm
+                outline-none
+                transition
+                focus:border-teal-500
+                focus:bg-white
+                focus:ring-4
+                focus:ring-teal-100
+              "
+              value={form.doctorId}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  doctorId:
+                    event.target.value,
+                }))
+              }
+            >
+              <option value="">
+                Selecciona un medico
+              </option>
+
+              {doctors.map((doctor) => (
+                <option
+                  key={doctor.id}
+                  value={doctor.id}
+                >
+                  {doctor.user.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <InputField
+            label="Fecha"
+            type="date"
+            value={form.date}
+            onChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                date: value,
+              }))
+            }
+          />
+
+          <InputField
+            label="Inicio"
+            type="datetime-local"
+            value={form.startTime}
+            onChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                startTime: value,
+              }))
+            }
+          />
+
+          <InputField
+            label="Fin"
+            type="datetime-local"
+            value={form.endTime}
+            onChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                endTime: value,
+              }))
+            }
+          />
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="
+              h-12
+              rounded-xl
+              bg-teal-600
+              text-sm
+              font-semibold
+              text-white
+              transition
+              hover:bg-teal-700
+              disabled:opacity-60
+            "
+          >
+            {loading
+              ? "Procesando..."
+              : "Crear horario"}
+          </button>
+        </form>
+
+        <section className="grid gap-4">
+          {availability.length ? (
+            availability.map((slot) => (
+              <AvailabilityCard
+                key={slot.id}
+                slot={slot}
+              />
+            ))
+          ) : (
+            <EmptyState
+              title="No hay horarios registrados"
+              description="Los horarios creados apareceran en esta seccion."
+            />
+          )}
+        </section>
+      </div>
+    </DashboardShell>
+  );
+}
+
+function InputField({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-semibold text-slate-700">
+        {label}
+      </span>
+
+      <input
+        type={type}
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        className="
+          h-12
+          rounded-xl
+          border
+          border-slate-200
+          bg-slate-50
+          px-4
+          text-sm
+          outline-none
+          transition
+          focus:border-teal-500
+          focus:bg-white
+          focus:ring-4
+          focus:ring-teal-100
+        "
+      />
+    </label>
   );
 }
