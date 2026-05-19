@@ -1,11 +1,18 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { AppNav } from "@/components/app-shell/AppNav";
-import { Field } from "@/components/ui/Field";
-import { FormButton } from "@/components/ui/FormButton";
-import { JsonBlock } from "@/components/ui/JsonBlock";
-import { Message } from "@/components/ui/Message";
+import { AppointmentCard } from "@/components/appointments/AppointmentCard";
+import { EmptyState } from "@/components/appointments/EmptyState";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
+
+type Role = "PACIENTE" | "MEDICO" | "ADMIN";
+
+type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+};
 
 type Availability = {
   id: string;
@@ -13,14 +20,8 @@ type Availability = {
   endTime: string;
   isBooked: boolean;
   doctor: {
-    user: {
-      name: string;
-    };
-    specialties: Array<{
-      specialty: {
-        name: string;
-      };
-    }>;
+    user: { name: string };
+    specialties: Array<{ specialty: { name: string } }>;
   };
 };
 
@@ -36,19 +37,22 @@ type Appointment = {
 };
 
 export default function AppointmentsPage() {
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+
   const [form, setForm] = useState({
     availabilityId: "",
     symptoms: "",
     priority: "NORMAL",
   });
+
   const [evaluationForm, setEvaluationForm] = useState({
     appointmentId: "",
     rating: "5",
     comment: "",
   });
-  const [result, setResult] = useState<unknown>(null);
+
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -56,23 +60,32 @@ export default function AppointmentsPage() {
     setLoading(true);
 
     try {
-      const [availabilityResponse, appointmentsResponse] = await Promise.all([
-        fetch("/api/availability?isBooked=false", { credentials: "include" }),
-        fetch("/api/appointments", { credentials: "include" }),
-      ]);
+      const [meResponse, availabilityResponse, appointmentsResponse] =
+        await Promise.all([
+          fetch("/api/auth/me", { credentials: "include" }),
+          fetch("/api/availability?isBooked=false", { credentials: "include" }),
+          fetch("/api/appointments", { credentials: "include" }),
+        ]);
+
+      const meData = await meResponse.json();
       const availabilityData = await availabilityResponse.json();
       const appointmentsData = await appointmentsResponse.json();
 
+      if (meResponse.ok) setUser(meData.user);
+
       setAvailability(availabilityData.availability ?? []);
       setAppointments(appointmentsData.appointments ?? []);
-      setResult({ availability: availabilityData, appointments: appointmentsData });
 
       if (!availabilityResponse.ok || !appointmentsResponse.ok) {
-        setMessage(availabilityData.error ?? appointmentsData.error ?? "No se pudieron cargar las citas.");
+        setMessage(
+          availabilityData.error ??
+            appointmentsData.error ??
+            "No se pudieron cargar las citas."
+        );
         return;
       }
 
-      setMessage("Agenda cargada.");
+      setMessage(null);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Error inesperado");
     } finally {
@@ -91,12 +104,12 @@ export default function AppointmentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      const data = await response.json();
 
-      setResult(data);
-      setMessage(response.ok ? "Cita agendada." : data.error);
+      const data = await response.json();
+      setMessage(response.ok ? "Cita agendada correctamente." : data.error);
 
       if (response.ok) {
+        setForm({ availabilityId: "", symptoms: "", priority: "NORMAL" });
         await loadData();
       }
     } catch (error) {
@@ -114,14 +127,11 @@ export default function AppointmentsPage() {
         method: "POST",
         credentials: "include",
       });
+
       const data = await response.json();
+      setMessage(response.ok ? "Cita cancelada correctamente." : data.error);
 
-      setResult(data);
-      setMessage(response.ok ? "Cita cancelada." : data.error);
-
-      if (response.ok) {
-        await loadData();
-      }
+      if (response.ok) await loadData();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Error inesperado");
     } finally {
@@ -134,21 +144,24 @@ export default function AppointmentsPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/appointments/${evaluationForm.appointmentId}/evaluation`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rating: Number(evaluationForm.rating),
-          comment: evaluationForm.comment,
-        }),
-      });
-      const data = await response.json();
+      const response = await fetch(
+        `/api/appointments/${evaluationForm.appointmentId}/evaluation`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rating: Number(evaluationForm.rating),
+            comment: evaluationForm.comment,
+          }),
+        }
+      );
 
-      setResult(data);
+      const data = await response.json();
       setMessage(response.ok ? "Evaluacion guardada." : data.error);
 
       if (response.ok) {
+        setEvaluationForm({ appointmentId: "", rating: "5", comment: "" });
         await loadData();
       }
     } catch (error) {
@@ -165,95 +178,193 @@ export default function AppointmentsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-zinc-100 text-zinc-950">
-      <AppNav />
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-8">
+    <DashboardShell role={user?.role} user={user}>
+      <div className="mb-8 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
         <div>
-          <h1 className="text-3xl font-semibold">Citas</h1>
-          <p className="mt-2 text-sm text-zinc-600">Agenda, cancela y consulta citas segun tu rol.</p>
+          <h1 className="text-4xl font-bold text-slate-900">Citas</h1>
+          <p className="mt-3 text-slate-500">
+            Agenda, consulta, cancela y evalua tus citas medicas.
+          </p>
         </div>
 
-        {message ? <Message type="info">{message}</Message> : null}
+        <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
+          <p className="text-sm font-semibold text-slate-500">Total citas</p>
+          <p className="mt-1 text-3xl font-bold text-teal-700">
+            {appointments.length}
+          </p>
+        </div>
+      </div>
 
-        <div className="grid gap-5 xl:grid-cols-[380px_1fr]">
-          <div className="grid h-fit gap-5">
-            <form className="grid gap-4 border border-zinc-300 bg-white p-5" onSubmit={scheduleAppointment}>
-              <label className="grid gap-1 text-sm font-medium text-zinc-700">
-                Horario libre
+      {message ? (
+        <div className="mb-6 rounded-2xl border border-teal-200 bg-teal-50 px-5 py-4 text-sm font-medium text-teal-800">
+          {message}
+        </div>
+      ) : null}
+
+      <div className="grid gap-6 xl:grid-cols-[390px_1fr]">
+        <aside className="grid h-fit gap-6">
+          <form
+            className="rounded-3xl bg-white p-6 shadow-sm"
+            onSubmit={scheduleAppointment}
+          >
+            <h2 className="text-xl font-bold text-slate-900">
+              Agendar nueva cita
+            </h2>
+
+            <div className="mt-6 grid gap-4">
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-slate-700">
+                  Horario disponible
+                </span>
                 <select
-                  className="h-10 border border-zinc-300 px-3 text-sm text-zinc-950 outline-none transition focus:border-emerald-600"
+                  className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
                   value={form.availabilityId}
-                  onChange={(event) => setForm((current) => ({ ...current, availabilityId: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      availabilityId: event.target.value,
+                    }))
+                  }
                 >
                   <option value="">Selecciona un horario</option>
                   {availability.map((slot) => (
                     <option key={slot.id} value={slot.id}>
-                      {slot.doctor.user.name} - {new Date(slot.startTime).toLocaleString()}
+                      {slot.doctor.user.name} -{" "}
+                      {new Date(slot.startTime).toLocaleString()}
                     </option>
                   ))}
                 </select>
               </label>
-              <Field label="Sintomas" value={form.symptoms} onChange={(symptoms) => setForm((current) => ({ ...current, symptoms }))} />
-              <label className="grid gap-1 text-sm font-medium text-zinc-700">
-                Prioridad
+
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-slate-700">
+                  Sintomas
+                </span>
+                <input
+                  className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                  value={form.symptoms}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      symptoms: event.target.value,
+                    }))
+                  }
+                  placeholder="Describe brevemente el motivo"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-slate-700">
+                  Prioridad
+                </span>
                 <select
-                  className="h-10 border border-zinc-300 px-3 text-sm text-zinc-950 outline-none transition focus:border-emerald-600"
+                  className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
                   value={form.priority}
-                  onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      priority: event.target.value,
+                    }))
+                  }
                 >
                   <option value="NORMAL">NORMAL</option>
                   <option value="HIGH">HIGH</option>
                   <option value="LOW">LOW</option>
                 </select>
               </label>
-              <FormButton loading={loading}>Agendar cita</FormButton>
-            </form>
 
-            <form className="grid gap-4 border border-zinc-300 bg-white p-5" onSubmit={submitEvaluation}>
-              <Field label="ID cita completada" value={evaluationForm.appointmentId} onChange={(appointmentId) => setEvaluationForm((current) => ({ ...current, appointmentId }))} />
-              <Field label="Calificacion" type="number" value={evaluationForm.rating} onChange={(rating) => setEvaluationForm((current) => ({ ...current, rating }))} />
-              <Field label="Comentario" value={evaluationForm.comment} onChange={(comment) => setEvaluationForm((current) => ({ ...current, comment }))} />
-              <FormButton loading={loading}>Evaluar cita</FormButton>
-            </form>
-          </div>
-
-          <div className="grid gap-4">
-            <div className="border border-zinc-300 bg-white">
-              <div className="border-b border-zinc-200 px-4 py-3">
-                <h2 className="font-semibold">Agenda</h2>
-              </div>
-              <div className="divide-y divide-zinc-200">
-                {appointments.map((appointment) => (
-                  <article className="grid gap-2 px-4 py-3 md:grid-cols-[1fr_auto]" key={appointment.id}>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold">{appointment.doctor.user.name}</h3>
-                        <span className="text-xs font-medium text-zinc-500">{appointment.status}</span>
-                        <span className="text-xs font-medium text-emerald-700">{appointment.priority}</span>
-                      </div>
-                      <p className="mt-1 text-sm text-zinc-600">
-                        Paciente: {appointment.patient.user.name} - {new Date(appointment.appointmentDate).toLocaleString()}
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-400">{appointment.id}</p>
-                    </div>
-                    <button
-                      className="h-9 border border-red-200 bg-red-50 px-3 text-sm font-semibold text-red-800 disabled:opacity-50"
-                      disabled={loading || appointment.status !== "SCHEDULED"}
-                      type="button"
-                      onClick={() => void cancelAppointment(appointment.id)}
-                    >
-                      Cancelar
-                    </button>
-                  </article>
-                ))}
-                {!appointments.length ? <p className="px-4 py-6 text-sm text-zinc-500">No hay citas.</p> : null}
-              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="h-12 rounded-xl bg-teal-600 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "Procesando..." : "Agendar cita"}
+              </button>
             </div>
+          </form>
 
-            {result ? <JsonBlock data={result} /> : null}
+          <form
+            className="rounded-3xl bg-white p-6 shadow-sm"
+            onSubmit={submitEvaluation}
+          >
+            <h2 className="text-xl font-bold text-slate-900">
+              Evaluar cita
+            </h2>
+
+            <div className="mt-6 grid gap-4">
+              <input
+                className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                value={evaluationForm.appointmentId}
+                onChange={(event) =>
+                  setEvaluationForm((current) => ({
+                    ...current,
+                    appointmentId: event.target.value,
+                  }))
+                }
+                placeholder="ID de cita completada"
+              />
+
+              <input
+                type="number"
+                min="1"
+                max="5"
+                className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                value={evaluationForm.rating}
+                onChange={(event) =>
+                  setEvaluationForm((current) => ({
+                    ...current,
+                    rating: event.target.value,
+                  }))
+                }
+              />
+
+              <input
+                className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                value={evaluationForm.comment}
+                onChange={(event) =>
+                  setEvaluationForm((current) => ({
+                    ...current,
+                    comment: event.target.value,
+                  }))
+                }
+                placeholder="Comentario"
+              />
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="h-12 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 disabled:opacity-60"
+              >
+                Guardar evaluacion
+              </button>
+            </div>
+          </form>
+        </aside>
+
+        <section className="grid h-fit gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-slate-900">
+              Agenda de citas
+            </h2>
           </div>
-        </div>
-      </section>
-    </main>
+
+          {appointments.length ? (
+            appointments.map((appointment) => (
+              <AppointmentCard
+                key={appointment.id}
+                appointment={appointment}
+                loading={loading}
+                onCancel={() => void cancelAppointment(appointment.id)}
+              />
+            ))
+          ) : (
+            <EmptyState
+              title="No hay citas registradas"
+              description="Cuando agendes una cita, aparecera en esta seccion."
+            />
+          )}
+        </section>
+      </div>
+    </DashboardShell>
   );
 }

@@ -1,46 +1,107 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AppNav } from "@/components/app-shell/AppNav";
-import { JsonBlock } from "@/components/ui/JsonBlock";
-import { Message } from "@/components/ui/Message";
+
+import { AppointmentCard } from "@/components/appointments/AppointmentCard";
+import { EmptyState } from "@/components/appointments/EmptyState";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
+
+type Role = "PACIENTE" | "MEDICO" | "ADMIN";
+
+type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+};
 
 type Appointment = {
   id: string;
   appointmentDate: string;
   status: string;
   priority: string;
-  patient: { user: { name: string } };
-  doctor: { user: { name: string } };
+  patient: {
+    user: {
+      name: string;
+    };
+  };
+  doctor: {
+    user: {
+      name: string;
+    };
+  };
 };
 
 export default function HistoryPage() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+
   const [status, setStatus] = useState("");
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [result, setResult] = useState<unknown>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
-  const loadHistory = useCallback(async (nextStatus: string) => {
-    try {
-      const query = nextStatus ? `?status=${nextStatus}` : "";
-      const response = await fetch(`/api/appointments${query}`, {
-        credentials: "include",
-      });
-      const data = await response.json();
+  const [appointments, setAppointments] = useState<
+    Appointment[]
+  >([]);
 
-      setResult(data);
+  const [message, setMessage] = useState<
+    string | null
+  >(null);
 
-      if (!response.ok) {
-        setMessage(data.error ?? "No se pudo cargar historial.");
-        return;
+  const [loading, setLoading] = useState(false);
+
+  const loadHistory = useCallback(
+    async (nextStatus: string) => {
+      setLoading(true);
+
+      try {
+        const query = nextStatus
+          ? `?status=${nextStatus}`
+          : "";
+
+        const [meResponse, appointmentsResponse] =
+          await Promise.all([
+            fetch("/api/auth/me", {
+              credentials: "include",
+            }),
+
+            fetch(`/api/appointments${query}`, {
+              credentials: "include",
+            }),
+          ]);
+
+        const meData = await meResponse.json();
+
+        const appointmentsData =
+          await appointmentsResponse.json();
+
+        if (meResponse.ok) {
+          setUser(meData.user);
+        }
+
+        if (!appointmentsResponse.ok) {
+          setMessage(
+            appointmentsData.error ??
+            "No se pudo cargar historial."
+          );
+
+          return;
+        }
+
+        setAppointments(
+          appointmentsData.appointments ?? []
+        );
+
+        setMessage(null);
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Error inesperado"
+        );
+      } finally {
+        setLoading(false);
       }
-
-      setAppointments(data.appointments ?? []);
-      setMessage("Historial cargado.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Error inesperado");
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -49,54 +110,104 @@ export default function HistoryPage() {
   }, [loadHistory]);
 
   return (
-    <main className="min-h-screen bg-zinc-100 text-zinc-950">
-      <AppNav />
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-8">
+    <DashboardShell
+      role={user?.role}
+      user={user}
+    >
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+
         <div>
-          <h1 className="text-3xl font-semibold">Historial</h1>
-          <p className="mt-2 text-sm text-zinc-600">Consulta citas por estado segun tu rol.</p>
+          <h1 className="text-4xl font-bold text-slate-900">
+            Historial
+          </h1>
+
+          <p className="mt-3 text-slate-500">
+            Consulta tus citas medicas por estado.
+          </p>
         </div>
 
-        <div className="flex max-w-sm gap-3">
-          <select
-            className="h-10 flex-1 border border-zinc-300 bg-white px-3 text-sm"
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
-              void loadHistory(event.target.value);
-            }}
-          >
-            <option value="">Todos</option>
-            <option value="SCHEDULED">SCHEDULED</option>
-            <option value="CANCELLED">CANCELLED</option>
-            <option value="PENDING_REASSIGNMENT">PENDING_REASSIGNMENT</option>
-            <option value="COMPLETED">COMPLETED</option>
-          </select>
+        <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
+          <p className="text-sm font-semibold text-slate-500">
+            Registros
+          </p>
+
+          <p className="mt-1 text-3xl font-bold text-teal-700">
+            {appointments.length}
+          </p>
         </div>
+      </div>
 
-        {message ? <Message type="info">{message}</Message> : null}
+      <div className="mb-6 flex flex-wrap items-center gap-3">
 
-        <div className="border border-zinc-300 bg-white">
-          <div className="divide-y divide-zinc-200">
-            {appointments.map((appointment) => (
-              <article className="px-4 py-3" key={appointment.id}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-semibold">{appointment.doctor.user.name}</h2>
-                  <span className="text-xs font-medium text-zinc-500">{appointment.status}</span>
-                  <span className="text-xs font-medium text-emerald-700">{appointment.priority}</span>
-                </div>
-                <p className="mt-1 text-sm text-zinc-600">
-                  Paciente: {appointment.patient.user.name} - {new Date(appointment.appointmentDate).toLocaleString()}
-                </p>
-                <p className="mt-2 text-xs text-zinc-400">{appointment.id}</p>
-              </article>
-            ))}
-            {!appointments.length ? <p className="px-4 py-6 text-sm text-zinc-500">Sin resultados.</p> : null}
+        <select
+          className="
+            h-12
+            rounded-xl
+            border
+            border-slate-200
+            bg-white
+            px-4
+            text-sm
+            font-medium
+            text-slate-700
+            shadow-sm
+            outline-none
+            transition
+            focus:border-teal-500
+            focus:ring-4
+            focus:ring-teal-100
+          "
+          value={status}
+          onChange={(event) => {
+            setStatus(event.target.value);
+
+            void loadHistory(
+              event.target.value
+            );
+          }}
+        >
+          <option value="">Todos</option>
+
+          <option value="SCHEDULED">
+            SCHEDULED
+          </option>
+
+          <option value="COMPLETED">
+            COMPLETED
+          </option>
+
+          <option value="CANCELLED">
+            CANCELLED
+          </option>
+
+          <option value="PENDING_REASSIGNMENT">
+            PENDING_REASSIGNMENT
+          </option>
+        </select>
+
+        {message ? (
+          <div className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-medium text-teal-800">
+            {message}
           </div>
-        </div>
+        ) : null}
+      </div>
 
-        {result ? <JsonBlock data={result} /> : null}
+      <section className="grid gap-4">
+        {appointments.length ? (
+          appointments.map((appointment) => (
+            <AppointmentCard
+              key={appointment.id}
+              appointment={appointment}
+              loading={loading}
+            />
+          ))
+        ) : (
+          <EmptyState
+            title="No hay historial disponible"
+            description="Las citas apareceran aqui una vez existan registros asociados a tu cuenta."
+          />
+        )}
       </section>
-    </main>
+    </DashboardShell>
   );
 }
