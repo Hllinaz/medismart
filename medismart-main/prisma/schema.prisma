@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+  // engineType = "client" // enable Prisma ORM without Rust
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PACIENTE
+  MEDICO
+  ADMIN
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  password      String
+  role          Role           @default(PACIENTE)
+  isActive      Boolean        @default(true)
+  doctorProfile DoctorProfile?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model DoctorProfile {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  specialtyId   String
+  licenseNumber String?
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialty     Specialty @relation(fields: [specialtyId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Specialty {
+  id             String          @id @default(cuid())
+  name           String          @unique
+  description    String?
+  isActive       Boolean         @default(true)
+  doctorProfiles DoctorProfile[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
