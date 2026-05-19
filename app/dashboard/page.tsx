@@ -41,6 +41,16 @@ const dashboardLinks = [
     description: "Agendar y consultar citas.",
   },
   {
+    href: "/dashboard/history",
+    title: "Historial",
+    description: "Consultar citas por estado.",
+  },
+  {
+    href: "/dashboard/doctor/schedule",
+    title: "Agenda medica",
+    description: "Vista de agenda para medicos.",
+  },
+  {
     href: "/dashboard/admin/reports",
     title: "Reportes",
     description: "Resumen administrativo.",

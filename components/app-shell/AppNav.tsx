@@ -10,6 +10,8 @@ const links = [
   { href: "/dashboard/admin/doctors", label: "Medicos" },
   { href: "/dashboard/admin/availability", label: "Horarios" },
   { href: "/dashboard/appointments", label: "Citas" },
+  { href: "/dashboard/history", label: "Historial" },
+  { href: "/dashboard/doctor/schedule", label: "Agenda medica" },
   { href: "/dashboard/admin/reports", label: "Reportes" },
 ];
 
