@@ -8,6 +8,9 @@ const links = [
   { href: "/dashboard/profile", label: "Perfil" },
   { href: "/dashboard/admin/specialties", label: "Especialidades" },
   { href: "/dashboard/admin/doctors", label: "Medicos" },
+  { href: "/dashboard/admin/availability", label: "Horarios" },
+  { href: "/dashboard/appointments", label: "Citas" },
+  { href: "/dashboard/admin/reports", label: "Reportes" },
 ];
 
 export function AppNav() {

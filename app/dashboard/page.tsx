@@ -11,7 +11,7 @@ type AuthUser = {
   name: string;
   email: string;
   role: "PACIENTE" | "MEDICO" | "ADMIN";
-  isActive: boolean;
+  status: "ACTIVE" | "INACTIVE" | "BLOCKED";
 };
 
 const dashboardLinks = [
@@ -29,6 +29,21 @@ const dashboardLinks = [
     href: "/dashboard/admin/doctors",
     title: "Medicos",
     description: "Crear y listar medicos. Requiere ADMIN.",
+  },
+  {
+    href: "/dashboard/admin/availability",
+    title: "Horarios",
+    description: "Crear disponibilidad medica.",
+  },
+  {
+    href: "/dashboard/appointments",
+    title: "Citas",
+    description: "Agendar y consultar citas.",
+  },
+  {
+    href: "/dashboard/admin/reports",
+    title: "Reportes",
+    description: "Resumen administrativo.",
   },
 ];
 

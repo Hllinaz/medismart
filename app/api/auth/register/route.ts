@@ -58,13 +58,16 @@ export async function POST(request: NextRequest) {
         email,
         password: await hashPassword(password),
         role,
+        patientProfile: {
+          create: {},
+        },
       },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
-        isActive: true,
+        status: true,
         createdAt: true,
         updatedAt: true,
       },

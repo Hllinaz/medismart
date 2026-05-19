@@ -6,6 +6,14 @@ function isUniqueConstraintError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 }
 
+function getSpecialtyIds(body: Record<string, unknown>) {
+  if (Array.isArray(body.specialtyIds)) {
+    return body.specialtyIds.filter((id): id is string => typeof id === "string" && Boolean(id));
+  }
+
+  return typeof body.specialtyId === "string" && body.specialtyId ? [body.specialtyId] : [];
+}
+
 export async function GET(request: NextRequest) {
   try {
     await requireRole(request, "ADMIN");
@@ -19,12 +27,16 @@ export async function GET(request: NextRequest) {
             name: true,
             email: true,
             role: true,
-            isActive: true,
+            status: true,
             createdAt: true,
             updatedAt: true,
           },
         },
-        specialty: true,
+        specialties: {
+          include: {
+            specialty: true,
+          },
+        },
       },
     });
 
@@ -42,7 +54,7 @@ export async function POST(request: NextRequest) {
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const password = typeof body.password === "string" ? body.password : "";
-    const specialtyId = typeof body.specialtyId === "string" ? body.specialtyId : "";
+    const specialtyIds = getSpecialtyIds(body);
     const licenseNumber =
       typeof body.licenseNumber === "string" && body.licenseNumber.trim()
         ? body.licenseNumber.trim()
@@ -60,23 +72,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Password es obligatorio" }, { status: 400 });
     }
 
-    if (!specialtyId) {
-      return NextResponse.json({ error: "SpecialtyId es obligatorio" }, { status: 400 });
+    if (!specialtyIds.length) {
+      return NextResponse.json({ error: "Debe seleccionar al menos una especialidad" }, { status: 400 });
     }
 
-    const specialty = await prisma.specialty.findFirst({
-      where: { id: specialtyId, isActive: true },
+    const specialties = await prisma.specialty.findMany({
+      where: { id: { in: specialtyIds }, isActive: true },
     });
 
-    if (!specialty) {
-      return NextResponse.json({ error: "Especialidad no encontrada o inactiva" }, { status: 404 });
+    if (specialties.length !== specialtyIds.length) {
+      return NextResponse.json({ error: "Una o mas especialidades no existen o estan inactivas" }, { status: 404 });
     }
 
     const doctor = await prisma.doctorProfile.create({
       data: {
         licenseNumber,
-        specialty: {
-          connect: { id: specialtyId },
+        specialties: {
+          create: specialtyIds.map((specialtyId) => ({
+            specialty: {
+              connect: { id: specialtyId },
+            },
+          })),
         },
         user: {
           create: {
@@ -84,6 +100,7 @@ export async function POST(request: NextRequest) {
             email,
             password: await hashPassword(password),
             role: "MEDICO" as const,
+            status: "ACTIVE",
           },
         },
       },
@@ -94,12 +111,16 @@ export async function POST(request: NextRequest) {
             name: true,
             email: true,
             role: true,
-            isActive: true,
+            status: true,
             createdAt: true,
             updatedAt: true,
           },
         },
-        specialty: true,
+        specialties: {
+          include: {
+            specialty: true,
+          },
+        },
       },
     });
 

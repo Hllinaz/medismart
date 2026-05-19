@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { NextResponse, type NextRequest } from "next/server";
-import type { Role } from "@prisma/client";
+import type { Role, UserStatus } from "@prisma/client";
 import { prisma } from "./prisma";
 
 const JWT_EXPIRES_IN = "7d";
@@ -11,7 +11,7 @@ export type AuthUser = {
   name: string;
   email: string;
   role: Role;
-  isActive: boolean;
+  status: UserStatus;
 };
 
 type JwtPayload = {
@@ -88,11 +88,11 @@ export async function getAuthUser(request: NextRequest): Promise<AuthUser | null
       name: true,
       email: true,
       role: true,
-      isActive: true,
+      status: true,
     },
   });
 
-  if (!user || !user.isActive) {
+  if (!user || user.status !== "ACTIVE") {
     return null;
   }
 

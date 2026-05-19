@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       where: { email },
     });
 
-    if (!userWithPassword || !userWithPassword.isActive) {
+    if (!userWithPassword || userWithPassword.status !== "ACTIVE") {
       return NextResponse.json({ error: "Credenciales invalidas" }, { status: 401 });
     }
 
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       name: userWithPassword.name,
       email: userWithPassword.email,
       role: userWithPassword.role,
-      isActive: userWithPassword.isActive,
+      status: userWithPassword.status,
       createdAt: userWithPassword.createdAt,
       updatedAt: userWithPassword.updatedAt,
     };
