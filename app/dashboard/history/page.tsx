@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "@/components/app-shell/AppNav";
 import { JsonBlock } from "@/components/ui/JsonBlock";
 import { Message } from "@/components/ui/Message";
@@ -20,7 +20,7 @@ export default function HistoryPage() {
   const [result, setResult] = useState<unknown>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function loadHistory(nextStatus = status) {
+  const loadHistory = useCallback(async (nextStatus: string) => {
     try {
       const query = nextStatus ? `?status=${nextStatus}` : "";
       const response = await fetch(`/api/appointments${query}`, {
@@ -40,13 +40,13 @@ export default function HistoryPage() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Error inesperado");
     }
-  }
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
       void loadHistory("");
     });
-  }, []);
+  }, [loadHistory]);
 
   return (
     <main className="min-h-screen bg-zinc-100 text-zinc-950">
