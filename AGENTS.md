@@ -46,7 +46,25 @@ El proyecto no usa carpeta `src/`.
 ```txt
 app/
   api/
+    admin/
+      doctors/
+      reports/
+      specialties/
+    appointments/
+    auth/
+    availability/
+    notifications/
   dashboard/
+    admin/
+      availability/
+      doctors/
+      reports/
+      specialties/
+    appointments/
+    doctor/
+      schedule/
+    history/
+    profile/
   login/
   register/
   globals.css
@@ -60,11 +78,13 @@ components/
 lib/
   auth.ts
   prisma.ts
+  scheduling.ts
 
 prisma/
   schema.prisma
 
 docker-compose.yml
+proxy.ts
 ```
 
 ## Rutas frontend actuales
@@ -77,6 +97,11 @@ docker-compose.yml
 /dashboard/profile             -> perfil y logout
 /dashboard/admin/specialties   -> crear/listar especialidades
 /dashboard/admin/doctors       -> crear/listar medicos
+/dashboard/admin/availability  -> crear/listar disponibilidad medica
+/dashboard/appointments        -> agendar/listar/cancelar/evaluar citas
+/dashboard/history             -> historial de citas por estado
+/dashboard/doctor/schedule     -> agenda del medico autenticado
+/dashboard/admin/reports       -> reportes administrativos
 ```
 
 Reglas frontend:
@@ -86,6 +111,8 @@ Reglas frontend:
 - Usar `"use client"` solo en pantallas con estado, formularios, efectos o eventos.
 - Mantener componentes reutilizables en `components/ui`.
 - Mantener navegacion compartida en `components/app-shell`.
+- Mantener reglas de negocio de agenda en `lib/scheduling.ts`, no dentro de componentes React.
+- Usar `proxy.ts` para proteccion ligera de rutas `/dashboard/*` en Next.js 16.
 - No reintroducir `components/backend-tester`.
 - No crear landing pages decorativas para herramientas internas.
 
@@ -108,12 +135,31 @@ POST  /api/admin/specialties
 GET   /api/admin/specialties/:id
 PUT   /api/admin/specialties/:id
 PATCH /api/admin/specialties/:id
+
+GET   /api/availability
+POST  /api/availability
+GET   /api/availability/:id
+PUT   /api/availability/:id
+PATCH /api/availability/:id
+
+GET   /api/appointments
+POST  /api/appointments
+GET   /api/appointments/:id
+PATCH /api/appointments/:id
+POST  /api/appointments/:id/cancel
+POST  /api/appointments/:id/reassign
+GET   /api/appointments/:id/evaluation
+POST  /api/appointments/:id/evaluation
+
+GET   /api/notifications
+GET   /api/admin/reports
 ```
 
 Reglas backend:
 
 - Validar input en API Routes.
 - Validar autenticacion y roles con `lib/auth.ts`.
+- Centralizar reglas de agenda, prioridad, perfiles, cancelacion y reasignacion en `lib/scheduling.ts`.
 - No devolver passwords.
 - Mantener respuestas JSON claras.
 - Evitar logica de negocio compleja dentro de componentes React.
@@ -133,6 +179,68 @@ Reglas:
 - Token aceptado desde cookie `token` o header `Authorization: Bearer`.
 - Rutas admin protegidas con `requireRole(request, "ADMIN")`.
 - Registro publico solo crea usuarios `PACIENTE`.
+- El registro publico tambien debe crear `PatientProfile`.
+- `User.status` es el estado funcional principal.
+- `User.isActive` existe como campo legacy para compatibilidad con datos anteriores; no debe usarse para nuevas reglas de autenticacion.
+
+Estados de usuario:
+
+- `ACTIVE`
+- `INACTIVE`
+- `BLOCKED`
+
+## Agenda medica
+
+Modelos actuales obligatorios:
+
+- `User`
+- `DoctorProfile`
+- `PatientProfile`
+- `Specialty`
+- `DoctorSpecialty`
+- `Availability`
+- `Appointment`
+- `Notification`
+- `Evaluation`
+
+Reglas de disponibilidad:
+
+- `ADMIN` puede crear/listar/editar disponibilidad de medicos.
+- `MEDICO` puede gestionar su propia disponibilidad.
+- Validar `doctorId`, `date`, `startTime`, `endTime`.
+- `startTime` debe ser menor que `endTime`.
+- No permitir cruces de horario para el mismo medico.
+- `isBooked` indica si el horario esta ocupado.
+
+Reglas de citas:
+
+- `PACIENTE` agenda sobre una disponibilidad libre.
+- Al agendar, crear `Appointment` y marcar `Availability.isBooked = true` en transaccion.
+- La cita relaciona `patientId`, `doctorId`, `availabilityId`, `appointmentDate`, `status`, `priority`, `requestDate`.
+- Estados: `SCHEDULED`, `CANCELLED`, `PENDING_REASSIGNMENT`, `COMPLETED`.
+- Prioridad: `HIGH`, `NORMAL`, `LOW`.
+- Ordenar por prioridad `HIGH > NORMAL > LOW` y en empate por `requestDate`.
+
+Reglas de cancelacion y reasignacion:
+
+- El paciente puede cancelar su cita activa.
+- El medico puede cancelar una cita activa.
+- Si cancela el medico, la cita queda `PENDING_REASSIGNMENT`.
+- La reasignacion busca citas en espera del mismo medico y elige por prioridad y `requestDate`.
+- Si no existe cita en espera, liberar disponibilidad.
+- Crear notificaciones para cancelacion y reasignacion.
+
+Reglas de evaluacion:
+
+- Solo `PACIENTE` dueño de la cita puede evaluar.
+- Solo se evalua una cita `COMPLETED`.
+- `rating` debe estar entre 1 y 5.
+
+Reglas de reportes:
+
+- Solo `ADMIN`.
+- Usar consultas agregadas cuando sea posible.
+- Reportes basicos: total de citas, canceladas, completadas, activas, por medico y por especialidad.
 
 ## Prisma y base de datos
 

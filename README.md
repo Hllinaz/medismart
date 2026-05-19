@@ -20,11 +20,23 @@ El proyecto usa App Router sin carpeta `src/`.
 app/
   api/
     admin/
+      doctors/
+      reports/
+      specialties/
+    appointments/
     auth/
+    availability/
+    notifications/
   dashboard/
     admin/
+      availability/
       doctors/
+      reports/
       specialties/
+    appointments/
+    doctor/
+      schedule/
+    history/
     profile/
   login/
   register/
@@ -39,11 +51,13 @@ components/
 lib/
   auth.ts
   prisma.ts
+  scheduling.ts
 
 prisma/
   schema.prisma
 
 docker-compose.yml
+proxy.ts
 ```
 
 ## Instalacion
@@ -125,7 +139,9 @@ Notas:
 - El registro publico crea usuarios `PACIENTE`.
 - Las pantallas admin requieren una sesion con rol `ADMIN`.
 - La autenticacion usa cookie httpOnly `token`.
+- `proxy.ts` protege `/dashboard/*` cuando no existe cookie de sesion.
 - Las pantallas frontend consumen las API Routes internas.
+- Las vistas en `app/disponibilidad/*.js` son pantallas mock heredadas y no son el flujo principal conectado.
 
 ## Backend
 
@@ -188,6 +204,26 @@ GET /api/notifications
 GET /api/admin/reports
 ```
 
+## Flujo funcional
+
+1. Un paciente se registra desde `/register`.
+2. El registro crea `User` con rol `PACIENTE`, password hasheado y `PatientProfile`.
+3. Un administrador crea especialidades y medicos.
+4. Un medico puede tener varias especialidades mediante `DoctorSpecialty`.
+5. Admin o medico crean disponibilidad horaria.
+6. El paciente agenda una cita sobre un horario libre.
+7. El backend valida que el horario exista, no este ocupado y marca `Availability.isBooked`.
+8. Las citas se ordenan por prioridad y `requestDate`.
+9. La cancelacion crea notificaciones y, si aplica, activa flujo de reasignacion.
+10. El paciente puede evaluar citas completadas.
+11. Admin consulta reportes agregados.
+
+La logica compartida de agenda vive en:
+
+```txt
+lib/scheduling.ts
+```
+
 ## Base de datos
 
 El schema principal esta en:
@@ -207,6 +243,12 @@ Modelos principales:
 - `Appointment`
 - `Notification`
 - `Evaluation`
+
+Notas sobre `User`:
+
+- `status` es el estado funcional principal: `ACTIVE`, `INACTIVE`, `BLOCKED`.
+- `isActive` se conserva como campo legacy para no perder datos existentes al sincronizar MySQL.
+- El backend nuevo debe usar `status`, no `isActive`, para autenticacion y permisos.
 
 Roles:
 
@@ -282,6 +324,9 @@ npm run build
 - No usar carpeta `src/`.
 - No guardar passwords en texto plano.
 - No devolver `password` en respuestas JSON.
-- Solo `ADMIN` puede gestionar medicos y especialidades.
+- Solo `ADMIN` puede gestionar medicos, especialidades y reportes.
+- `ADMIN` y `MEDICO` pueden gestionar disponibilidad segun propiedad/regla de rol.
+- `PACIENTE` agenda y cancela sus propias citas.
 - Usar `@/lib/prisma` para acceder al cliente Prisma compartido.
+- Usar `@/lib/scheduling` para reglas de agenda, prioridad, perfiles, cancelacion y reasignacion.
 - Usar componentes compartidos desde `components/ui`.
