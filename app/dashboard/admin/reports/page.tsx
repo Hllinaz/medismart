@@ -1,9 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AppNav } from "@/components/app-shell/AppNav";
-import { JsonBlock } from "@/components/ui/JsonBlock";
-import { Message } from "@/components/ui/Message";
+
+import { StatCard } from "@/components/dashboard/StatCard";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { EmptyState } from "@/components/appointments/EmptyState";
+
+type Role = "PACIENTE" | "MEDICO" | "ADMIN";
+
+type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+};
 
 type Reports = {
   totalAppointments: number;
@@ -16,26 +26,31 @@ type Reports = {
 };
 
 export default function ReportsPage() {
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [reports, setReports] = useState<Reports | null>(null);
-  const [result, setResult] = useState<unknown>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   async function loadReports() {
     try {
-      const response = await fetch("/api/admin/reports", {
-        credentials: "include",
-      });
-      const data = await response.json();
+      const [meResponse, reportsResponse] = await Promise.all([
+        fetch("/api/auth/me", { credentials: "include" }),
+        fetch("/api/admin/reports", { credentials: "include" }),
+      ]);
 
-      setResult(data);
+      const meData = await meResponse.json();
+      const reportsData = await reportsResponse.json();
 
-      if (!response.ok) {
-        setMessage(data.error ?? "No se pudieron cargar reportes.");
+      if (meResponse.ok) {
+        setUser(meData.user);
+      }
+
+      if (!reportsResponse.ok) {
+        setMessage(reportsData.error ?? "No se pudieron cargar reportes.");
         return;
       }
 
-      setReports(data.reports);
-      setMessage("Reportes cargados.");
+      setReports(reportsData.reports);
+      setMessage(null);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Error inesperado");
     }
@@ -48,69 +63,133 @@ export default function ReportsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-zinc-100 text-zinc-950">
-      <AppNav />
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:px-8">
-        <div>
-          <h1 className="text-3xl font-semibold">Reportes</h1>
-          <p className="mt-2 text-sm text-zinc-600">Indicadores administrativos basicos.</p>
+    <DashboardShell role={user?.role} user={user}>
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-slate-900">Reportes</h1>
+        <p className="mt-3 text-slate-500">
+          Monitorea indicadores administrativos y actividad médica.
+        </p>
+      </div>
+
+      {message ? (
+        <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">
+          {message}
         </div>
+      ) : null}
 
-        {message ? <Message type="info">{message}</Message> : null}
+      {reports ? (
+        <>
+          <section className="mb-6 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label="Total citas"
+              value={reports.totalAppointments}
+              description="Citas registradas en el sistema."
+              tone="teal"
+            />
 
-        {reports ? (
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="border border-zinc-300 bg-white p-5">
-              <p className="text-sm text-zinc-500">Total</p>
-              <p className="mt-2 text-3xl font-semibold">{reports.totalAppointments}</p>
-            </div>
-            <div className="border border-zinc-300 bg-white p-5">
-              <p className="text-sm text-zinc-500">Canceladas</p>
-              <p className="mt-2 text-3xl font-semibold">{reports.cancelledAppointments}</p>
-            </div>
-            <div className="border border-zinc-300 bg-white p-5">
-              <p className="text-sm text-zinc-500">Completadas</p>
-              <p className="mt-2 text-3xl font-semibold">{reports.completedAppointments}</p>
-            </div>
-            <div className="border border-zinc-300 bg-white p-5">
-              <p className="text-sm text-zinc-500">Activas</p>
-              <p className="mt-2 text-3xl font-semibold">{reports.scheduledAppointments}</p>
-            </div>
-          </div>
-        ) : null}
+            <StatCard
+              label="Activas"
+              value={reports.scheduledAppointments}
+              description="Citas actualmente programadas."
+              tone="blue"
+            />
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="border border-zinc-300 bg-white">
-            <div className="border-b border-zinc-200 px-4 py-3">
-              <h2 className="font-semibold">Por medico</h2>
-            </div>
-            <div className="divide-y divide-zinc-200">
-              {reports?.byDoctor.map((item) => (
-                <div className="flex justify-between gap-4 px-4 py-3" key={item.doctorId}>
-                  <span>{item.doctorName}</span>
-                  <strong>{item.count}</strong>
-                </div>
-              ))}
-            </div>
-          </div>
+            <StatCard
+              label="Completadas"
+              value={reports.completedAppointments}
+              description="Citas finalizadas correctamente."
+              tone="emerald"
+            />
 
-          <div className="border border-zinc-300 bg-white">
-            <div className="border-b border-zinc-200 px-4 py-3">
-              <h2 className="font-semibold">Por especialidad</h2>
+            <StatCard
+              label="Canceladas"
+              value={reports.cancelledAppointments}
+              description="Citas canceladas o no realizadas."
+              tone="red"
+            />
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-2">
+            <ReportList
+              title="Citas por médico"
+              description="Distribución de citas asignadas por profesional."
+              emptyTitle="Sin datos por médico"
+              emptyDescription="Cuando existan citas asignadas, aparecerán en este resumen."
+              items={reports.byDoctor.map((item) => ({
+                id: item.doctorId,
+                label: item.doctorName,
+                value: item.count,
+              }))}
+            />
+
+            <ReportList
+              title="Citas por especialidad"
+              description="Distribución de citas según el área médica."
+              emptyTitle="Sin datos por especialidad"
+              emptyDescription="Cuando existan citas por especialidad, aparecerán en este resumen."
+              items={reports.bySpecialty.map((item) => ({
+                id: item.specialtyId,
+                label: item.name,
+                value: item.count,
+              }))}
+            />
+          </section>
+        </>
+      ) : (
+        <EmptyState
+          title="Reportes no disponibles"
+          description="Los indicadores aparecerán cuando el sistema cargue información administrativa."
+        />
+      )}
+    </DashboardShell>
+  );
+}
+
+function ReportList({
+  title,
+  description,
+  items,
+  emptyTitle,
+  emptyDescription,
+}: {
+  title: string;
+  description: string;
+  items: Array<{ id: string; label: string; value: number }>;
+  emptyTitle: string;
+  emptyDescription: string;
+}) {
+  const maxValue = Math.max(...items.map((item) => item.value), 1);
+
+  return (
+    <article className="rounded-3xl bg-white p-6 shadow-sm">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+      </div>
+
+      {items.length ? (
+        <div className="grid gap-4">
+          {items.map((item) => (
+            <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+              <div className="mb-3 flex items-center justify-between gap-4">
+                <p className="font-semibold text-slate-800">{item.label}</p>
+                <span className="rounded-full bg-teal-50 px-3 py-1 text-sm font-bold text-teal-700">
+                  {item.value}
+                </span>
+              </div>
+
+              <div className="h-2 rounded-full bg-slate-200">
+                <div
+                  className="h-2 rounded-full bg-teal-500"
+                  style={{ width: `${Math.max((item.value / maxValue) * 100, 8)}%` }}
+                />
+              </div>
             </div>
-            <div className="divide-y divide-zinc-200">
-              {reports?.bySpecialty.map((item) => (
-                <div className="flex justify-between gap-4 px-4 py-3" key={item.specialtyId}>
-                  <span>{item.name}</span>
-                  <strong>{item.count}</strong>
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
-
-        {result ? <JsonBlock data={result} /> : null}
-      </section>
-    </main>
+      ) : (
+        <EmptyState title={emptyTitle} description={emptyDescription} />
+      )}
+    </article>
   );
 }

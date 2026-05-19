@@ -1,5 +1,6 @@
 "use client";
 
+import { Bell, LogOut, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type Role = "PACIENTE" | "MEDICO" | "ADMIN";
@@ -10,6 +11,12 @@ type TopbarProps = {
     email: string;
     role: Role;
   } | null;
+};
+
+const roleLabels: Record<Role, string> = {
+  PACIENTE: "Paciente",
+  MEDICO: "Médico",
+  ADMIN: "Administrador",
 };
 
 export function Topbar({ user }: TopbarProps) {
@@ -34,7 +41,7 @@ export function Topbar({ user }: TopbarProps) {
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="flex h-20 items-center justify-between px-6 lg:px-10">
+      <div className="flex h-20 items-center justify-between gap-6 px-6 lg:px-10">
         <div>
           <p className="text-sm font-medium text-slate-500">Panel principal</p>
           <h2 className="text-xl font-bold text-slate-900">
@@ -42,13 +49,31 @@ export function Topbar({ user }: TopbarProps) {
           </h2>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="hidden max-w-md flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 xl:flex">
+          <Search size={18} className="text-slate-400" />
+          <input
+            className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+            placeholder="Buscar citas, médicos o pacientes..."
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+            title="Notificaciones"
+          >
+            <Bell size={18} />
+            <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-teal-500" />
+          </button>
+
           <div className="hidden text-right sm:block">
             <p className="text-sm font-semibold text-slate-900">
               {user?.name ?? "Usuario"}
             </p>
             <p className="text-xs text-slate-500">
-              {user?.role ?? "Rol"} · {user?.email ?? "correo"}
+              {user?.role ? roleLabels[user.role] : "Rol"} ·{" "}
+              {user?.email ?? "correo"}
             </p>
           </div>
 
@@ -59,9 +84,10 @@ export function Topbar({ user }: TopbarProps) {
           <button
             type="button"
             onClick={() => void logout()}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700"
           >
-            Salir
+            <LogOut size={16} />
+            <span className="hidden sm:inline">Salir</span>
           </button>
         </div>
       </div>
