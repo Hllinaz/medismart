@@ -10,9 +10,21 @@ type AuthUser = {
   id: string;
   name: string;
   email: string;
+  phone: string | null
+  dateOfBirth: string | null
   role: Role;
   status: UserStatus;
 };
+
+function formatDate(value?: string | null) {
+  if (!value) return "--";
+
+  return new Intl.DateTimeFormat("es-CO", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(value));
+}
 
 export default function ProfilePage() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -81,7 +93,12 @@ export default function ProfilePage() {
 
           <div className="mt-10 grid gap-4 md:grid-cols-2">
             <InfoItem label="Nombre completo" value={user?.name ?? "--"} />
-            <InfoItem label="Correo electronico" value={user?.email ?? "--"} />
+            <InfoItem label="Correo electrónico" value={user?.email ?? "--"} />
+            <InfoItem label="Número telefónico" value={user?.phone ?? "--"} />
+            <InfoItem
+              label="Fecha de nacimiento"
+              value={formatDate(user?.dateOfBirth)}
+            />
             <InfoItem label="Rol del sistema" value={user?.role ?? "--"} />
             <InfoItem label="Estado de la cuenta" value={user?.status ?? "--"} />
           </div>

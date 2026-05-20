@@ -10,6 +10,8 @@ export type AuthUser = {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
+  dateOfBirth: Date | null;
   role: Role;
   status: UserStatus;
 };
@@ -87,6 +89,8 @@ export async function getAuthUser(request: NextRequest): Promise<AuthUser | null
       id: true,
       name: true,
       email: true,
+      phone: true,
+      dateOfBirth: true,
       role: true,
       status: true,
     },
