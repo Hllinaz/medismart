@@ -69,6 +69,12 @@ const linksByRole: Record<Role, SidebarLink[]> = {
     },
 
     {
+      href: "/dashboard/admin/availability",
+      label: "Disponibilidad",
+      icon: CalendarDays,
+    },
+
+    {
       href: "/dashboard/doctor/schedule",
       label: "Agenda",
       icon: Clock3,

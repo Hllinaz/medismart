@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
-import { AvailabilityCard } from "@/components/admin/AvailabilityCard";
 import { EmptyState } from "@/components/appointments/EmptyState";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 
@@ -41,8 +40,8 @@ export default function AvailabilityPage() {
   const [form, setForm] = useState({
     doctorId: "",
     date: "",
-    startTime: "",
-    endTime: "",
+    startHour: "09:00",
+    durationMinutes: 60,
   });
 
   const [doctors, setDoctors] = useState<
@@ -58,65 +57,56 @@ export default function AvailabilityPage() {
 
   const [loading, setLoading] = useState(false);
 
+
   async function loadData() {
     setLoading(true);
 
     try {
-      const [
-        meResponse,
-        doctorsResponse,
-        availabilityResponse,
-      ] = await Promise.all([
-        fetch("/api/auth/me", {
-          credentials: "include",
-        }),
-
-        fetch("/api/admin/doctors", {
-          credentials: "include",
-        }),
-
-        fetch("/api/availability", {
-          credentials: "include",
-        }),
-      ]);
+      const meResponse = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
 
       const meData = await meResponse.json();
 
-      const doctorsData =
-        await doctorsResponse.json();
-
-      const availabilityData =
-        await availabilityResponse.json();
-
-      if (meResponse.ok) {
-        setUser(meData.user);
-      }
-
-      if (
-        !doctorsResponse.ok ||
-        !availabilityResponse.ok
-      ) {
-        setMessage(
-          doctorsData.error ??
-            availabilityData.error ??
-            "No se pudo cargar informacion."
-        );
-
+      if (!meResponse.ok) {
+        setMessage(meData.error ?? "No autorizado");
         return;
       }
 
-      setDoctors(doctorsData.doctors ?? []);
+      setUser(meData.user);
 
-      setAvailability(
-        availabilityData.availability ?? []
-      );
+      const availabilityResponse = await fetch("/api/availability", {
+        credentials: "include",
+      });
+
+      const availabilityData = await availabilityResponse.json();
+
+      if (!availabilityResponse.ok) {
+        setMessage(availabilityData.error ?? "No se pudo cargar disponibilidad.");
+        return;
+      }
+
+      setAvailability(availabilityData.availability ?? []);
+
+      if (meData.user.role === "ADMIN") {
+        const doctorsResponse = await fetch("/api/admin/doctors", {
+          credentials: "include",
+        });
+
+        const doctorsData = await doctorsResponse.json();
+
+        if (!doctorsResponse.ok) {
+          setMessage(doctorsData.error ?? "No se pudo cargar médicos.");
+          return;
+        }
+
+        setDoctors(doctorsData.doctors ?? []);
+      }
 
       setMessage(null);
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Error inesperado"
+        error instanceof Error ? error.message : "Error inesperado"
       );
     } finally {
       setLoading(false);
@@ -131,6 +121,10 @@ export default function AvailabilityPage() {
     setLoading(true);
 
     try {
+      const startTime = new Date(`${form.date}T${form.startHour}`);
+
+      const endTime = new Date(startTime.getTime() + Number(form.durationMinutes) * 60 * 1000)
+
       const response = await fetch(
         "/api/availability",
         {
@@ -146,8 +140,8 @@ export default function AvailabilityPage() {
           body: JSON.stringify({
             doctorId: form.doctorId,
             date: form.date,
-            startTime: form.startTime,
-            endTime: form.endTime,
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
           }),
         }
       );
@@ -193,7 +187,7 @@ export default function AvailabilityPage() {
       user={user}
     >
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        
+
         <div>
           <h1 className="text-4xl font-bold text-slate-900">
             Disponibilidad
@@ -205,7 +199,7 @@ export default function AvailabilityPage() {
         </div>
 
         <div className="flex gap-4">
-          
+
           <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
             <p className="text-sm font-semibold text-slate-500">
               Libres
@@ -235,7 +229,7 @@ export default function AvailabilityPage() {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
-        
+
         <form
           className="
             grid
@@ -252,50 +246,32 @@ export default function AvailabilityPage() {
             Nuevo horario
           </h2>
 
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold text-slate-700">
-              Medico
-            </span>
+          {user?.role === "ADMIN" ? (
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold text-slate-700">
+                Médico
+              </span>
 
-            <select
-              className="
-                h-12
-                rounded-xl
-                border
-                border-slate-200
-                bg-slate-50
-                px-4
-                text-sm
-                outline-none
-                transition
-                focus:border-teal-500
-                focus:bg-white
-                focus:ring-4
-                focus:ring-teal-100
-              "
-              value={form.doctorId}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  doctorId:
-                    event.target.value,
-                }))
-              }
-            >
-              <option value="">
-                Selecciona un medico
-              </option>
+              <select
+                className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                value={form.doctorId}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    doctorId: event.target.value,
+                  }))
+                }
+              >
+                <option value="">Selecciona un médico</option>
 
-              {doctors.map((doctor) => (
-                <option
-                  key={doctor.id}
-                  value={doctor.id}
-                >
-                  {doctor.user.name}
-                </option>
-              ))}
-            </select>
-          </label>
+                {doctors.map((doctor) => (
+                  <option key={doctor.id} value={doctor.id}>
+                    {doctor.user.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
           <InputField
             label="Fecha"
@@ -309,29 +285,44 @@ export default function AvailabilityPage() {
             }
           />
 
-          <InputField
-            label="Inicio"
-            type="datetime-local"
-            value={form.startTime}
-            onChange={(value) =>
-              setForm((current) => ({
-                ...current,
-                startTime: value,
-              }))
-            }
-          />
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-slate-700">
+              Hora de inicio
+            </span>
 
-          <InputField
-            label="Fin"
-            type="datetime-local"
-            value={form.endTime}
-            onChange={(value) =>
-              setForm((current) => ({
-                ...current,
-                endTime: value,
-              }))
-            }
-          />
+            <input
+              type="time"
+              step="60"
+              value={form.startHour}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  startHour: event.target.value,
+                }))
+              }
+              className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+            />
+          </label>
+
+          <label>
+            Duración
+            <select
+              className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+              value={form.durationMinutes}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  durationMinutes: Number(e.target.value)
+                })
+              }
+            >
+              <option value="30">30 minutos</option>
+              <option value="45">45 minutos</option>
+              <option value="60">1 hora</option>
+              <option value="90">1 hora 30 minutos</option>
+              <option value="120">2 horas</option>
+            </select>
+          </label>
 
           <button
             type="submit"
@@ -354,14 +345,64 @@ export default function AvailabilityPage() {
           </button>
         </form>
 
-        <section className="grid gap-4">
+        <section className="rounded-3xl bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-xl font-bold text-slate-900">
+            Horario activo
+          </h2>
+
           {availability.length ? (
-            availability.map((slot) => (
-              <AvailabilityCard
-                key={slot.id}
-                slot={slot}
-              />
-            ))
+            <div className="overflow-hidden rounded-2xl border border-slate-100">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Fecha</th>
+                    <th className="px-4 py-3 font-semibold">Inicio</th>
+                    <th className="px-4 py-3 font-semibold">Fin</th>
+                    <th className="px-4 py-3 font-semibold">Médico</th>
+                    <th className="px-4 py-3 font-semibold">Estado</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100">
+                  {availability.map((slot) => (
+                    <tr key={slot.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 text-slate-700">
+                        {new Date(slot.date).toLocaleDateString("es-CO")}
+                      </td>
+
+                      <td className="px-4 py-3 text-slate-700">
+                        {new Date(slot.startTime).toLocaleTimeString("es-CO", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </td>
+
+                      <td className="px-4 py-3 text-slate-700">
+                        {new Date(slot.endTime).toLocaleTimeString("es-CO", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </td>
+
+                      <td className="px-4 py-3 font-medium text-slate-900">
+                        {slot.doctor.user.name}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${slot.isBooked
+                            ? "bg-red-50 text-red-700"
+                            : "bg-emerald-50 text-emerald-700"
+                            }`}
+                        >
+                          {slot.isBooked ? "Ocupado" : "Libre"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <EmptyState
               title="No hay horarios registrados"
@@ -397,21 +438,7 @@ function InputField({
         onChange={(event) =>
           onChange(event.target.value)
         }
-        className="
-          h-12
-          rounded-xl
-          border
-          border-slate-200
-          bg-slate-50
-          px-4
-          text-sm
-          outline-none
-          transition
-          focus:border-teal-500
-          focus:bg-white
-          focus:ring-4
-          focus:ring-teal-100
-        "
+        className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
       />
     </label>
   );
