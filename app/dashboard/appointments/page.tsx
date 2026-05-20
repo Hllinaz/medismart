@@ -217,7 +217,7 @@ export default function AppointmentsPage() {
                   Horario disponible
                 </span>
                 <select
-                  className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                  className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
                   value={form.availabilityId}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -226,7 +226,7 @@ export default function AppointmentsPage() {
                     }))
                   }
                 >
-                  <option value="">Selecciona un horario</option>
+                  <option className="text-slate-900" value="">Selecciona un horario</option>
                   {availability.map((slot) => (
                     <option key={slot.id} value={slot.id}>
                       {slot.doctor.user.name} -{" "}
@@ -241,7 +241,7 @@ export default function AppointmentsPage() {
                   Sintomas
                 </span>
                 <input
-                  className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                  className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
                   value={form.symptoms}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -258,7 +258,7 @@ export default function AppointmentsPage() {
                   Prioridad
                 </span>
                 <select
-                  className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                  className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
                   value={form.priority}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -293,7 +293,7 @@ export default function AppointmentsPage() {
 
             <div className="mt-6 grid gap-4">
               <input
-                className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
                 value={evaluationForm.appointmentId}
                 onChange={(event) =>
                   setEvaluationForm((current) => ({
@@ -308,7 +308,7 @@ export default function AppointmentsPage() {
                 type="number"
                 min="1"
                 max="5"
-                className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
                 value={evaluationForm.rating}
                 onChange={(event) =>
                   setEvaluationForm((current) => ({
@@ -319,7 +319,7 @@ export default function AppointmentsPage() {
               />
 
               <input
-                className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
                 value={evaluationForm.comment}
                 onChange={(event) =>
                   setEvaluationForm((current) => ({

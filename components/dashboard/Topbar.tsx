@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Bell, LogOut, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -21,6 +22,7 @@ const roleLabels: Record<Role, string> = {
 
 export function Topbar({ user }: TopbarProps) {
   const router = useRouter();
+  const [notificationCount, setNotificationCount] = useState(0);
 
   async function logout() {
     await fetch("/api/auth/logout", {
@@ -30,6 +32,35 @@ export function Topbar({ user }: TopbarProps) {
 
     router.push("/login");
   }
+
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        const response = await fetch(
+          "/api/notifications",
+          {
+            credentials: "include",
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setNotificationCount(
+            data.notifications?.length ?? 0
+          );
+        }
+      } catch {
+        console.error(
+          "Error loading notifications"
+        );
+      }
+    }
+
+    queueMicrotask(() => {
+      void loadNotifications();
+    });
+  }, []);
 
   const initials =
     user?.name
@@ -60,11 +91,52 @@ export function Topbar({ user }: TopbarProps) {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+            onClick={() => router.push("/dashboard/notifications")}
+            className="
+                        relative
+                        flex
+                        h-11
+                        w-11
+                        items-center
+                        justify-center
+                        rounded-2xl
+                        border
+                        border-slate-200
+                        bg-white
+                        text-slate-500
+                        transition
+                        hover:border-teal-200
+                        hover:bg-teal-50
+                        hover:text-teal-700
+                      "
             title="Notificaciones"
           >
             <Bell size={18} />
-            <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-teal-500" />
+
+            {notificationCount > 0 ? (
+              <span
+                className="
+                          absolute
+                          -right-1
+                          -top-1
+                          flex
+                          h-5
+                          min-w-5
+                          items-center
+                          justify-center
+                          rounded-full
+                          bg-red-500
+                          px-1
+                          text-[10px]
+                          font-bold
+                          text-white
+                        "
+              >
+                {notificationCount > 9
+                  ? "9+"
+                  : notificationCount}
+              </span>
+            ) : null}
           </button>
 
           <div className="hidden text-right sm:block">
