@@ -32,6 +32,7 @@ type Appointment = {
   status: string;
   priority: string;
   requestDate: string;
+  wasReassigned: boolean;
   patient: { user: { name: string } };
   doctor: { user: { name: string } };
   evaluation: { rating: number; comment: string | null } | null;

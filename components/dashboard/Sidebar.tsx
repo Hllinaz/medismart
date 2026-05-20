@@ -35,7 +35,7 @@ const linksByRole: Record<Role, SidebarLink[]> = {
     },
 
     {
-      href: "/dashboard/appointments",
+      href: "/dashboard/patient/appointments",
       label: "Mis citas",
       icon: CalendarDays,
     },
@@ -69,7 +69,7 @@ const linksByRole: Record<Role, SidebarLink[]> = {
     },
 
     {
-      href: "/dashboard/admin/availability",
+      href: "/dashboard/doctor/availability",
       label: "Disponibilidad",
       icon: CalendarDays,
     },

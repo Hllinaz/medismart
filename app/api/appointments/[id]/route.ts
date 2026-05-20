@@ -58,7 +58,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const appointment = await prisma.appointment.update({
       where: { id },
-      data: { status },
+      data: {
+        status,
+        ...(status === "PENDING_REASSIGNMENT" ? { wasReassigned: false } : {}),
+      },
     });
 
     return NextResponse.json({ appointment });

@@ -17,6 +17,7 @@ type Appointment = {
   appointmentDate: string;
   status: string;
   priority: string;
+  wasReassigned: boolean;
   patient: {
     user: {
       name: string;
@@ -264,10 +265,16 @@ export function WeeklyCalendar({
                             })}
                           </p>
 
-                          <div className="mt-2">
+                          <div className="mt-2 flex flex-wrap gap-1">
                             <span className="rounded-full bg-white/20 px-2 py-1 text-[10px] font-bold">
                               {appointment.status}
                             </span>
+
+                            {appointment.wasReassigned ? (
+                              <span className="rounded-full bg-yellow-200 px-2 py-1 text-[10px] font-bold text-yellow-900">
+                                REASSIGNED
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       ) : availability && !availability.isBooked ? (
@@ -304,7 +311,15 @@ export function WeeklyCalendar({
                 <p className="mt-2 text-sm text-slate-500">{selected.id}</p>
               </div>
 
-              <StatusBadge status={selected.status} />
+              <div className="flex items-center gap-2">
+                <StatusBadge status={selected.status} />
+
+                {selected.wasReassigned ? (
+                  <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold text-yellow-800">
+                    REASSIGNED
+                  </span>
+                ) : null}
+              </div>
             </div>
 
             <div className="grid gap-4 text-sm">

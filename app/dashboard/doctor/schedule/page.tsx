@@ -27,6 +27,7 @@ type Appointment = {
   appointmentDate: string;
   status: string;
   priority: string;
+  wasReassigned: boolean;
 
   patient: {
     user: {

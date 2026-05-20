@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
           appointmentDate: availability.startTime,
           priority,
           status: "SCHEDULED",
+          wasReassigned: false,
         },
       });
 

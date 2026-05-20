@@ -149,6 +149,7 @@ export async function reassignAvailability(availabilityId: string) {
         availabilityId,
         appointmentDate: availability.startTime,
         status: "SCHEDULED",
+        wasReassigned: true,
       },
     });
 
@@ -162,7 +163,10 @@ export async function reassignAvailability(availabilityId: string) {
         userId: nextAppointment.patient.userId,
         appointmentId: updatedAppointment.id,
         type: "REASSIGNMENT",
-        message: "Tu cita fue reasignada a un nuevo horario disponible.",
+        message: `Tu cita fue reasignada para el ${availability.startTime.toLocaleDateString("es-CO")} a las ${availability.startTime.toLocaleTimeString("es-CO", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })} con ${availability.doctor.user.name}.`,
       },
     });
 

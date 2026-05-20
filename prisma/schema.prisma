@@ -133,8 +133,9 @@ model Appointment {
   appointmentDate DateTime
   requestDate     DateTime @default(now())
 
-  status   AppointmentStatus @default(SCHEDULED)
-  priority Priority          @default(NORMAL)
+  status        AppointmentStatus @default(SCHEDULED)
+  priority      Priority          @default(NORMAL)
+  wasReassigned Boolean           @default(false)
 
   patient      PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctor       DoctorProfile  @relation(fields: [doctorId], references: [id], onDelete: Cascade)

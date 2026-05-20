@@ -6,6 +6,7 @@ type AppointmentCardProps = {
     appointmentDate: string;
     status: string;
     priority: string;
+    wasReassigned: boolean;
     patient: {
       user: { name: string; };
     };
@@ -36,11 +37,15 @@ export function AppointmentCard({
               {appointment.doctor.user.name}
             </h3>
 
-            <StatusBadge
-              status={appointment.status}
-            />
-          </div>
+            <StatusBadge status={appointment.status} />
 
+            {appointment.wasReassigned ? (
+              <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800">
+                REASSIGNED
+              </span>
+            ) : null}
+          </div>
+          
           <p className="mt-3 text-sm text-slate-500">
             Paciente:
             {" "}
