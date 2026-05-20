@@ -4,6 +4,14 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { StatusBadge } from "@/components/appointments/StatusBadge";
 
+type Availability = {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  isBooked: boolean;
+};
+
 type Appointment = {
   id: string;
   appointmentDate: string;
@@ -24,6 +32,9 @@ type Appointment = {
 
 type WeeklyCalendarProps = {
   appointments: Appointment[];
+  availabilities?: Availability[];
+  canCancel?: boolean;
+  onCancelAppointment?: (appointmentId: string) => Promise<void>;
 };
 
 const hours = Array.from({ length: 11 }, (_, index) => index + 8);
@@ -50,17 +61,39 @@ function sameDay(a: Date, b: Date) {
   );
 }
 
-export function WeeklyCalendar({ appointments }: WeeklyCalendarProps) {
+function getAppointmentClass(status: string) {
+  switch (status) {
+    case "SCHEDULED":
+      return "bg-teal-600 text-white";
+    case "CANCELLED":
+      return "bg-slate-200 text-slate-600";
+    case "COMPLETED":
+      return "bg-blue-600 text-white";
+    case "PENDING_REASSIGNMENT":
+      return "bg-amber-400 text-amber-950";
+    default:
+      return "bg-slate-100 text-slate-700";
+  }
+}
+
+export function WeeklyCalendar({
+  appointments,
+  availabilities = [],
+  canCancel = false,
+  onCancelAppointment,
+}: WeeklyCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selected, setSelected] = useState<Appointment | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const today = new Date();
   const currentHour = today.getHours();
 
   const weekStart = useMemo(() => startOfWeek(currentDate), [currentDate]);
+
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
-    [weekStart]
+    [weekStart],
   );
 
   function getAppointment(day: Date, hour: number) {
@@ -68,6 +101,26 @@ export function WeeklyCalendar({ appointments }: WeeklyCalendarProps) {
       const date = new Date(appointment.appointmentDate);
       return sameDay(date, day) && date.getHours() === hour;
     });
+  }
+
+  function getAvailability(day: Date, hour: number) {
+    return availabilities.find((availability) => {
+      const date = new Date(availability.startTime);
+      return sameDay(date, day) && date.getHours() === hour;
+    });
+  }
+
+  async function handleCancel() {
+    if (!selected || !onCancelAppointment) return;
+
+    setCancelling(true);
+
+    try {
+      await onCancelAppointment(selected.id);
+      setSelected(null);
+    } finally {
+      setCancelling(false);
+    }
   }
 
   return (
@@ -78,7 +131,7 @@ export function WeeklyCalendar({ appointments }: WeeklyCalendarProps) {
             Calendario semanal
           </h2>
           <p className="mt-2 text-sm text-slate-500">
-            Vista organizada por día y hora.
+            Vista organizada por día, hora, disponibilidad y estado de cita.
           </p>
         </div>
 
@@ -107,6 +160,14 @@ export function WeeklyCalendar({ appointments }: WeeklyCalendarProps) {
             <ChevronRight size={18} />
           </button>
         </div>
+      </div>
+
+      <div className="mb-5 flex flex-wrap gap-3 text-xs font-semibold">
+        <Legend color="bg-emerald-100 border-emerald-300" label="Disponible" />
+        <Legend color="bg-teal-600" label="Programada" />
+        <Legend color="bg-slate-300" label="Cancelada" />
+        <Legend color="bg-blue-600" label="Completada" />
+        <Legend color="bg-amber-400" label="Pendiente" />
       </div>
 
       <div className="overflow-x-auto">
@@ -171,6 +232,7 @@ export function WeeklyCalendar({ appointments }: WeeklyCalendarProps) {
 
                 {days.map((day) => {
                   const appointment = getAppointment(day, hour);
+                  const availability = getAvailability(day, hour);
 
                   return (
                     <button
@@ -180,14 +242,18 @@ export function WeeklyCalendar({ appointments }: WeeklyCalendarProps) {
                       className="border-l border-slate-200/70 p-2 text-left transition hover:bg-slate-50"
                     >
                       {appointment ? (
-                        <div className="rounded-2xl bg-linear-to-br from-teal-500 to-emerald-500 p-3 text-white shadow-sm transition hover:scale-[1.02] hover:shadow-lg">
+                        <div
+                          className={`rounded-2xl p-3 shadow-sm transition hover:scale-[1.02] hover:shadow-lg ${getAppointmentClass(
+                            appointment.status,
+                          )}`}
+                        >
                           <p className="truncate text-sm font-bold">
                             {appointment.patient.user.name}
                           </p>
 
-                          <p className="mt-1 text-xs text-white/80">
+                          <p className="mt-1 text-xs opacity-80">
                             {new Date(
-                              appointment.appointmentDate
+                              appointment.appointmentDate,
                             ).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
@@ -195,10 +261,23 @@ export function WeeklyCalendar({ appointments }: WeeklyCalendarProps) {
                           </p>
 
                           <div className="mt-2">
-                            <span className="rounded-full bg-white/20 px-2 py-1 text-[10px] font-bold text-white">
+                            <span className="rounded-full bg-white/20 px-2 py-1 text-[10px] font-bold">
                               {appointment.status}
                             </span>
                           </div>
+                        </div>
+                      ) : availability && !availability.isBooked ? (
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-700">
+                          <p className="text-sm font-bold">Disponible</p>
+                          <p className="mt-1 text-xs">
+                            {new Date(availability.startTime).toLocaleTimeString(
+                              [],
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )}
+                          </p>
                         </div>
                       ) : null}
                     </button>
@@ -237,10 +316,21 @@ export function WeeklyCalendar({ appointments }: WeeklyCalendarProps) {
               <Info label="Prioridad" value={selected.priority} />
             </div>
 
+            {canCancel && selected.status === "SCHEDULED" ? (
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={cancelling}
+                className="mt-6 h-11 w-full rounded-xl bg-red-600 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {cancelling ? "Cancelando..." : "Cancelar cita"}
+              </button>
+            ) : null}
+
             <button
               type="button"
               onClick={() => setSelected(null)}
-              className="mt-6 h-11 w-full rounded-xl bg-teal-600 text-sm font-semibold text-white transition hover:bg-teal-700"
+              className="mt-3 h-11 w-full rounded-xl bg-teal-600 text-sm font-semibold text-white transition hover:bg-teal-700"
             >
               Cerrar
             </button>
@@ -256,6 +346,15 @@ function Info({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl bg-slate-50 p-4">
       <p className="text-xs font-semibold text-slate-500">{label}</p>
       <p className="mt-1 font-bold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-slate-600">
+      <span className={`h-3 w-3 rounded-full border ${color}`} />
+      <span>{label}</span>
     </div>
   );
 }

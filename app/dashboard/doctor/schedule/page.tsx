@@ -14,6 +14,14 @@ type AuthUser = {
   role: Role;
 };
 
+type Availability = {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  isBooked: boolean;
+};
+
 type Appointment = {
   id: string;
   appointmentDate: string;
@@ -38,21 +46,18 @@ export default function DoctorSchedulePage() {
   const [user, setUser] =
     useState<AuthUser | null>(null);
 
-  const [appointments, setAppointments] =
-    useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [availabilities, setAvailabilities] = useState<Availability[]>([]);
 
-  const [message, setMessage] = useState<
-    string | null
-  >(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const [, setLoading] =
-    useState(false);
+  const [, setLoading] = useState(false);
 
   async function loadSchedule() {
     setLoading(true);
 
     try {
-      const [meResponse, appointmentsResponse] =
+      const [meResponse, appointmentsResponse, availabilityResponse] =
         await Promise.all([
           fetch("/api/auth/me", {
             credentials: "include",
@@ -61,12 +66,16 @@ export default function DoctorSchedulePage() {
           fetch("/api/appointments", {
             credentials: "include",
           }),
+
+          fetch("/api/availability", {
+            credentials: "include",
+          }),
         ]);
 
       const meData = await meResponse.json();
 
-      const appointmentsData =
-        await appointmentsResponse.json();
+      const appointmentsData = await appointmentsResponse.json();
+      const availabilityData = await availabilityResponse.json();
 
       if (meResponse.ok) {
         setUser(meData.user);
@@ -75,7 +84,7 @@ export default function DoctorSchedulePage() {
       if (!appointmentsResponse.ok) {
         setMessage(
           appointmentsData.error ??
-            "No se pudo cargar agenda."
+          "No se pudo cargar agenda."
         );
 
         return;
@@ -84,6 +93,12 @@ export default function DoctorSchedulePage() {
       setAppointments(
         appointmentsData.appointments ?? []
       );
+
+      if (availabilityResponse.ok) {
+        setAvailabilities(availabilityData.availability ?? []);
+      } else {
+        setAvailabilities([]);
+      }
 
       setMessage(null);
     } catch (error) {
@@ -103,6 +118,10 @@ export default function DoctorSchedulePage() {
     });
   }, []);
 
+  const availableCount = availabilities.filter(
+    (availability) => !availability.isBooked
+  ).length;
+
   const scheduledCount = appointments.filter(
     (appointment) =>
       appointment.status === "SCHEDULED"
@@ -113,13 +132,35 @@ export default function DoctorSchedulePage() {
       appointment.status === "COMPLETED"
   ).length;
 
+  async function handleCancelAppointment(appointmentId: string) {
+    const response = await fetch(`/api/appointments/${appointmentId}/cancel`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setMessage(data.error ?? "No se pudo cancelar la cita.");
+      return;
+    }
+
+    if (user?.role == "PACIENTE") {
+      setMessage("Cita cancelada correctamente.");
+    } else {
+      setMessage("Cita cancelada. Queda pendiente de reasignación.");
+    }
+
+    await loadSchedule();
+  }
+
   return (
     <DashboardShell
       role={user?.role}
       user={user}
     >
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        
+
         <div>
           <h1 className="text-4xl font-bold text-slate-900">
             Agenda medica
@@ -131,7 +172,17 @@ export default function DoctorSchedulePage() {
         </div>
 
         <div className="flex gap-4">
-          
+
+          <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
+            <p className="text-sm font-semibold text-slate-500">
+              Horarios disponibles
+            </p>
+
+            <p className="mt-1 text-3xl font-bold text-emerald-600">
+              {availableCount}
+            </p>
+          </div>
+
           <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
             <p className="text-sm font-semibold text-slate-500">
               Programadas
@@ -160,7 +211,12 @@ export default function DoctorSchedulePage() {
         </div>
       ) : null}
 
-      <WeeklyCalendar appointments={appointments} />
+      <WeeklyCalendar
+        appointments={appointments}
+        availabilities={availabilities}
+        canCancel={user?.role === "MEDICO" || user?.role === "ADMIN"}
+        onCancelAppointment={handleCancelAppointment}
+      />
 
     </DashboardShell>
   );

@@ -55,15 +55,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
       }
 
-      await tx.notification.create({
-        data: {
-          userId: appointment.patient.userId,
-          appointmentId: appointment.id,
-          type: "CANCELLATION",
-          message: cancelledByDoctor
-            ? "Tu cita fue cancelada por el medico y queda pendiente de reasignacion."
-            : "Tu cita fue cancelada correctamente.",
-        },
+      await tx.notification.createMany({
+        data: [
+          {
+            userId: appointment.patient.userId,
+            appointmentId: appointment.id,
+            type: "CANCELLATION",
+            message: cancelledByDoctor
+              ? "Tu cita fue cancelada por el medico y queda pendiente de reasignacion."
+              : "Tu cita fue cancelada correctamente.",
+          },
+          {
+            userId: appointment.doctor.userId,
+            appointmentId: appointment.id,
+            type: "CANCELLATION",
+            message:
+              user.role === "PACIENTE"
+                ? `La cita con el paciente ${appointment.patient.user.name} fue cancelada.`
+                : `La cita con el paciente ${appointment.patient.user.name} fue cancelada por ${user.role === "MEDICO" ? "el medico" : "administracion"}.`,
+          },
+        ],
       });
 
       return updated;
