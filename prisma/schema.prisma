@@ -40,13 +40,15 @@ enum Priority {
 }
 
 model User {
-  id       String     @id @default(cuid())
-  name     String
-  email    String     @unique
-  password String
-  role     Role       @default(PACIENTE)
-  status   UserStatus @default(ACTIVE)
-  isActive Boolean    @default(true)
+  id          String     @id @default(cuid())
+  name        String
+  email       String     @unique
+  phone       String?    @unique
+  dateOfBirth DateTime?
+  password    String
+  role        Role       @default(PACIENTE)
+  status      UserStatus @default(ACTIVE)
+  isActive    Boolean    @default(true)
 
   doctorProfile  DoctorProfile?
   patientProfile PatientProfile?

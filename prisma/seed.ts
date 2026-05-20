@@ -17,6 +17,8 @@ async function main() {
     create: {
       name: "Admin Demo",
       email: "admin@demo.com",
+      phone: "+573001112233",
+      dateOfBirth: new Date("1985-05-10"),
       password,
       role: Role.ADMIN,
     },
@@ -31,6 +33,8 @@ async function main() {
     create: {
       name: "Paciente Demo",
       email: "paciente@demo.com",
+      phone: "+573002223344",
+      dateOfBirth: new Date("1998-09-21"),
       password,
       role: Role.PACIENTE,
       patientProfile: {
@@ -73,48 +77,64 @@ async function main() {
     {
       name: "Dr. Carlos Ramirez",
       email: "medico@demo.com",
+      phone: "+573003334455",
+      birthDate: "1980-03-15",
       license: "MED-2026-001",
       specs: ["Cardiologia", "Dermatologia"]
     },
     {
       name: "Dra. Ana Martinez",
       email: "ana.martinez@demo.com",
+      phone: "+573003334456",
+      birthDate: "1980-03-15",
       license: "MED-2026-002",
       specs: ["Pediatria"]
     },
     {
       name: "Dr. Luis Fernandez",
       email: "luis.fernandez@demo.com",
+      phone: "+573003334465",
+      birthDate: "1980-03-15",
       license: "MED-2026-003",
       specs: ["Traumatologia"]
     },
     {
       name: "Dra. Sofia Castro",
       email: "sofia.castro@demo.com",
+      phone: "+573003334655",
+      birthDate: "1980-03-15",
       license: "MED-2026-004",
       specs: ["Ginecologia", "Pediatria"]
     },
     {
       name: "Dr. Alejandro Gomez",
       email: "alejandro.gomez@demo.com",
+      phone: "+573003234455",
+      birthDate: "1980-03-15",
       license: "MED-2026-005",
       specs: ["Medicina General"]
     },
     {
       name: "Dra. Elena Rostova",
       email: "elena.rostova@demo.com",
+      phone: "+573003734455",
+      birthDate: "1980-03-15",
       license: "MED-2026-006",
       specs: ["Odontologia"]
     },
     {
       name: "Dr. Javier Herrera",
       email: "javier.herrera@demo.com",
+      phone: "+573003834455",
+      birthDate: "1980-03-15",
       license: "MED-2026-007",
       specs: ["Psiquiatria"]
     },
     {
       name: "Dra. Claudia Rios",
       email: "claudia.rios@demo.com",
+      phone: "+573013234455",
+      birthDate: "1980-03-15",
       license: "MED-2026-008",
       specs: ["Nutricion", "Medicina General"]
     }
@@ -131,28 +151,34 @@ async function main() {
     // A) Crear/Actualizar Cuenta de Usuario
     const doctorUser = await prisma.user.upsert({
       where: { email: doc.email },
-      update: {},
+      update: {
+        name: doc.name,
+        phone: doc.phone,
+        dateOfBirth: new Date(doc.birthDate),
+        role: Role.MEDICO,
+      },
       create: {
         name: doc.name,
         email: doc.email,
+        phone: doc.phone,
+        dateOfBirth: new Date(doc.birthDate),
         password,
         role: Role.MEDICO,
-        doctorProfile: {
-          create: {
-            licenseNumber: doc.license,
-          },
-        },
       },
     });
 
     // B) Obtener el Perfil Médico vinculado
-    const doctorProfile = await prisma.doctorProfile.findUnique({
+    const doctorProfile = await prisma.doctorProfile.upsert({
       where: { userId: doctorUser.id },
+      update: {
+        licenseNumber: doc.license,
+        active: true,
+      },
+      create: {
+        userId: doctorUser.id,
+        licenseNumber: doc.license,
+      },
     });
-
-    if (!doctorProfile) {
-      throw new Error(`No se encontro el perfil para ${doc.name}`);
-    }
 
     // C) Crear Relaciones Médico-Especialidad
     for (const specName of doc.specs) {
@@ -197,7 +223,7 @@ async function main() {
       startTime.setHours(block.startH, block.startM, 0, 0);
 
       const endTime = new Date(block.targetDate);
-      endTime.setHours(block.endH, block.endM, 0, 0); 
+      endTime.setHours(block.endH, block.endM, 0, 0);
 
       const existingAvailability = await prisma.availability.findFirst({
         where: {

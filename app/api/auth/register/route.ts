@@ -30,6 +30,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+    const dateOfBirth =
+      typeof body.dateOfBirth === "string" && body.dateOfBirth
+        ? new Date(body.dateOfBirth)
+        : null;
     const password = typeof body.password === "string" ? body.password : "";
     const role = typeof body.role === "string" ? body.role : "PACIENTE";
 
@@ -39,6 +44,14 @@ export async function POST(request: NextRequest) {
 
     if (!email) {
       return NextResponse.json({ error: "Email es obligatorio" }, { status: 400 });
+    }
+
+    if (!phone) {
+      return NextResponse.json({ error: "El número de telefono es obligatorio" }, { status: 400 })
+    }
+
+    if (!dateOfBirth) {
+      return NextResponse.json({ error: "La fecha de nacimiento es obligatoria" }, { status: 400 })
     }
 
     if (!password) {
@@ -56,6 +69,8 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         email,
+        phone,
+        dateOfBirth,
         password: await hashPassword(password),
         role,
         patientProfile: {
@@ -66,6 +81,8 @@ export async function POST(request: NextRequest) {
         id: true,
         name: true,
         email: true,
+        phone: true,
+        dateOfBirth: true,
         role: true,
         status: true,
         createdAt: true,

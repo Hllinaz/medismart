@@ -9,6 +9,8 @@ export function RegisterForm() {
   const [form, setForm] = useState({
     name: "Paciente Demo",
     email: "paciente@demo.com",
+    phone: "3001234567",
+    dateOfBirth: "2000-01-01",
     password: "password123",
   });
 
@@ -65,6 +67,25 @@ export function RegisterForm() {
           placeholder="correo@ejemplo.com"
           onChange={(value) =>
             setForm((current) => ({ ...current, email: value }))
+          }
+        />
+
+        <AuthInput
+          label="Número de teléfono"
+          type="tel"
+          value={form.phone}
+          placeholder="3001234567"
+          onChange={(value) =>
+            setForm((current) => ({ ...current, phone: value }))
+          }
+        />
+
+        <AuthInput
+          label="Fecha de nacimiento"
+          type="date"
+          value={form.dateOfBirth}
+          onChange={(value) =>
+            setForm((current) => ({ ...current, dateOfBirth: value }))
           }
         />
 
