@@ -85,6 +85,7 @@ Levantar MySQL y preparar Prisma:
 npm run db:up
 npm run db:generate
 npx prisma db push
+npx tsx prisma/seed.ts
 ```
 
 Ejecutar desarrollo:
@@ -113,6 +114,12 @@ npm run db:generate
 npm run db:migrate
 npm run db:studio
 npm run setup:db
+```
+
+Inicia el tunnel de ngrok:
+
+```bash
+npm run tunnel
 ```
 
 ## Frontend
