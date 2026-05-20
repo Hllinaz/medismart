@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import {
+  Bell,
   CalendarDays,
   ClipboardList,
   Clock3,
@@ -46,10 +47,18 @@ const linksByRole: Record<Role, SidebarLink[]> = {
     },
 
     {
+      href: "/dashboard/notifications",
+      label: "Notificaciones",
+      icon: Bell,
+    },
+
+    {
       href: "/dashboard/profile",
       label: "Perfil",
       icon: User,
     },
+
+
   ],
 
   MEDICO: [
@@ -63,6 +72,12 @@ const linksByRole: Record<Role, SidebarLink[]> = {
       href: "/dashboard/doctor/schedule",
       label: "Agenda",
       icon: Clock3,
+    },
+
+    {
+      href: "/dashboard/notifications",
+      label: "Notificaciones",
+      icon: Bell,
     },
 
     {
@@ -104,6 +119,12 @@ const linksByRole: Record<Role, SidebarLink[]> = {
     },
 
     {
+      href: "/dashboard/notifications",
+      label: "Notificaciones",
+      icon: Bell,
+    },
+
+    {
       href: "/dashboard/profile",
       label: "Perfil",
       icon: User,
@@ -131,9 +152,9 @@ export function Sidebar({
       "
     >
       <div className="border-b border-slate-200 px-8 py-7">
-        
+
         <div className="flex items-center gap-3">
-          
+
           <div
             className="
               flex
@@ -163,7 +184,7 @@ export function Sidebar({
 
       <nav className="flex-1 px-4 py-6">
         <div className="grid gap-2">
-          
+
           {links.map((link) => {
             const active =
               pathname === link.href;
@@ -186,14 +207,13 @@ export function Sidebar({
                   font-semibold
                   transition-all
                   duration-200
-                  ${
-                    active
-                      ? `
+                  ${active
+                    ? `
                         bg-teal-50
                         text-teal-700
                         shadow-sm
                       `
-                      : `
+                    : `
                         text-slate-600
                         hover:bg-slate-100
                         hover:text-slate-900
@@ -205,10 +225,9 @@ export function Sidebar({
                   size={18}
                   className={`
                     transition
-                    ${
-                      active
-                        ? "text-teal-600"
-                        : "text-slate-400 group-hover:text-slate-700"
+                    ${active
+                      ? "text-teal-600"
+                      : "text-slate-400 group-hover:text-slate-700"
                     }
                   `}
                 />

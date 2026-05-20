@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import { AppointmentCard } from "@/components/appointments/AppointmentCard";
-import { EmptyState } from "@/components/appointments/EmptyState";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { WeeklyCalendar } from "@/components/calendar/WeeklyCalendar";
 
 type Role = "PACIENTE" | "MEDICO" | "ADMIN";
 
@@ -46,7 +45,7 @@ export default function DoctorSchedulePage() {
     string | null
   >(null);
 
-  const [loading, setLoading] =
+  const [, setLoading] =
     useState(false);
 
   async function loadSchedule() {
@@ -161,22 +160,8 @@ export default function DoctorSchedulePage() {
         </div>
       ) : null}
 
-      <section className="grid gap-4">
-        {appointments.length ? (
-          appointments.map((appointment) => (
-            <AppointmentCard
-              key={appointment.id}
-              appointment={appointment}
-              loading={loading}
-            />
-          ))
-        ) : (
-          <EmptyState
-            title="No hay citas asignadas"
-            description="Las citas medicas del doctor apareceran en esta seccion."
-          />
-        )}
-      </section>
+      <WeeklyCalendar appointments={appointments} />
+
     </DashboardShell>
   );
 }
