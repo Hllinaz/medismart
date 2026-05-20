@@ -2,9 +2,10 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
-import { DoctorCard } from "@/components/admin/DoctorCard";
 import { EmptyState } from "@/components/appointments/EmptyState";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { SpecialtyPickerModal } from "@/components/admin/SpecialtyPickerModal";
+import { DoctorsTable } from "@/components/admin/DoctorsTable";
 
 type Role = "PACIENTE" | "MEDICO" | "ADMIN";
 
@@ -46,22 +47,15 @@ export default function DoctorsPage() {
     name: "Dra. Demo",
     email: "doctor@demo.com",
     password: "password123",
-    specialtyId: "",
-    licenseNumber: "MED-001",
+    specialtyIds: [] as string[],
+    licenseNumber: "MED-2026-001",
   });
 
-  const [doctors, setDoctors] = useState<
-    Doctor[]
-  >([]);
-
-  const [specialties, setSpecialties] =
-    useState<Specialty[]>([]);
-
-  const [message, setMessage] = useState<
-    string | null
-  >(null);
-
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showSpecialtyModal, setShowSpecialtyModal] = useState(false);
 
   async function loadDoctors() {
     setLoading(true);
@@ -90,7 +84,7 @@ export default function DoctorsPage() {
       if (!doctorsResponse.ok) {
         setMessage(
           doctorsData.error ??
-            "No se pudieron cargar medicos."
+          "No se pudieron cargar medicos."
         );
 
         return;
@@ -163,8 +157,17 @@ export default function DoctorsPage() {
       );
 
       if (response.ok) {
+        setForm({
+          name: "",
+          email: "",
+          password: "",
+          specialtyIds: [],
+          licenseNumber: "",
+        });
+
         await loadDoctors();
       }
+
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -189,7 +192,7 @@ export default function DoctorsPage() {
       user={user}
     >
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        
+
         <div>
           <h1 className="text-4xl font-bold text-slate-900">
             Medicos
@@ -218,7 +221,7 @@ export default function DoctorsPage() {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
-        
+
         <form
           className="
             grid
@@ -270,38 +273,42 @@ export default function DoctorsPage() {
             }
           />
 
-          <label className="grid gap-2">
+          <div className="grid gap-2">
             <span className="text-sm font-semibold text-slate-700">
-              Especialidad
+              Especialidades
             </span>
 
-            <select
-              className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
-              value={form.specialtyId}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  specialtyId:
-                    event.target.value,
-                }))
-              }
-            >
-              <option value="">
-                Selecciona una especialidad
-              </option>
+            <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              {form.specialtyIds.length ? (
+                form.specialtyIds.map((id) => {
+                  const specialty = specialties.find((item) => item.id === id);
 
-              {specialties.map(
-                (specialty) => (
-                  <option
-                    key={specialty.id}
-                    value={specialty.id}
-                  >
-                    {specialty.name}
-                  </option>
-                )
+                  if (!specialty) return null;
+
+                  return (
+                    <span
+                      key={id}
+                      className="rounded-full bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-700"
+                    >
+                      {specialty.name}
+                    </span>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-slate-500">
+                  No has seleccionado especialidades.
+                </p>
               )}
-            </select>
-          </label>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowSpecialtyModal(true)}
+              className="h-11 rounded-xl border border-teal-200 bg-teal-50 text-sm font-semibold text-teal-700 transition hover:bg-teal-100"
+            >
+              + Agregar especialidades
+            </button>
+          </div>
 
           <InputField
             label="Licencia"
@@ -335,22 +342,32 @@ export default function DoctorsPage() {
           </button>
         </form>
 
-        <section className="grid gap-4">
+        <section>
           {doctors.length ? (
-            doctors.map((doctor) => (
-              <DoctorCard
-                key={doctor.id}
-                doctor={doctor}
-              />
-            ))
+            <DoctorsTable doctors={doctors} />
           ) : (
             <EmptyState
-              title="No hay medicos registrados"
-              description="Cuando agregues medicos, apareceran en esta seccion."
+              title="No hay médicos registrados"
+              description="Cuando agregues médicos, aparecerán en esta sección."
             />
           )}
         </section>
       </div>
+
+      {showSpecialtyModal ? (
+        <SpecialtyPickerModal
+          specialties={specialties}
+          selectedIds={form.specialtyIds}
+          onClose={() => setShowSpecialtyModal(false)}
+          onSave={(selectedIds) => {
+            setForm((current) => ({
+              ...current,
+              specialtyIds: selectedIds,
+            }));
+            setShowSpecialtyModal(false);
+          }}
+        />
+      ) : null}
     </DashboardShell>
   );
 }
