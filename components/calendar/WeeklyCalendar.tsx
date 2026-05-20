@@ -35,6 +35,8 @@ type WeeklyCalendarProps = {
   availabilities?: Availability[];
   canCancel?: boolean;
   onCancelAppointment?: (appointmentId: string) => Promise<void>;
+  canComplete?: boolean;
+  onCompleteAppointment?: (appointmentId: string) => Promise<void>;
 };
 
 const hours = Array.from({ length: 11 }, (_, index) => index + 8);
@@ -81,6 +83,8 @@ export function WeeklyCalendar({
   availabilities = [],
   canCancel = false,
   onCancelAppointment,
+  canComplete,
+  onCompleteAppointment
 }: WeeklyCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selected, setSelected] = useState<Appointment | null>(null);
@@ -324,6 +328,19 @@ export function WeeklyCalendar({
                 className="mt-6 h-11 w-full rounded-xl bg-red-600 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {cancelling ? "Cancelando..." : "Cancelar cita"}
+              </button>
+            ) : null}
+
+            {canComplete && selected.status === "SCHEDULED" ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  await onCompleteAppointment?.(selected.id);
+                  setSelected(null);
+                }}
+                className="mt-3 h-11 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
+              >
+                Marcar como completada
               </button>
             ) : null}
 

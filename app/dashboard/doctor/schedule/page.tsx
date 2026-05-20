@@ -154,6 +154,23 @@ export default function DoctorSchedulePage() {
     await loadSchedule();
   }
 
+  async function handleCompleteAppointment(appointmentId: string) {
+    const response = await fetch(`/api/appointments/${appointmentId}/complete`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setMessage(data.error ?? "No se pudo completar la cita.");
+      return;
+    }
+
+    setMessage("Cita marcada como completada.");
+    await loadSchedule();
+  }
+
   return (
     <DashboardShell
       role={user?.role}
@@ -216,6 +233,8 @@ export default function DoctorSchedulePage() {
         availabilities={availabilities}
         canCancel={user?.role === "MEDICO" || user?.role === "ADMIN"}
         onCancelAppointment={handleCancelAppointment}
+        canComplete={user?.role === "MEDICO" || user?.role === "ADMIN"}
+        onCompleteAppointment={handleCompleteAppointment}
       />
 
     </DashboardShell>
