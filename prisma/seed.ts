@@ -1,4 +1,4 @@
-import { PrismaClient, Role } from "@prisma/client";
+import { PrismaClient, Role, Specialty } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -9,15 +9,11 @@ async function main() {
   const password = await bcrypt.hash("password123", 10);
 
   /*
-   * ADMIN
+   * 1. ADMIN
    */
   await prisma.user.upsert({
-    where: {
-      email: "admin@demo.com",
-    },
-
+    where: { email: "admin@demo.com" },
     update: {},
-
     create: {
       name: "Admin Demo",
       email: "admin@demo.com",
@@ -27,21 +23,16 @@ async function main() {
   });
 
   /*
-   * PACIENTE
+   * 2. PACIENTE
    */
   await prisma.user.upsert({
-    where: {
-      email: "paciente@demo.com",
-    },
-
+    where: { email: "paciente@demo.com" },
     update: {},
-
     create: {
       name: "Paciente Demo",
       email: "paciente@demo.com",
       password,
       role: Role.PACIENTE,
-
       patientProfile: {
         create: {},
       },
@@ -49,134 +40,186 @@ async function main() {
   });
 
   /*
-   * MEDICO
+   * 3. ESPECIALIDADES
    */
-  const doctorUser = await prisma.user.upsert({
-    where: {
-      email: "medico@demo.com",
-    },
+  const specialtiesData = [
+    { name: "Medicina General", description: "Atencion medica primaria y preventiva" },
+    { name: "Odontologia", description: "Salud oral, dental y cuidado estomatologico" },
+    { name: "Cardiologia", description: "Especialidad cardiologica" },
+    { name: "Dermatologia", description: "Especialidad dermatologica" },
+    { name: "Pediatria", description: "Cuidado medico de niños y adolescentes" },
+    { name: "Traumatologia", description: "Lesiones del sistema musculoesqueletico" },
+    { name: "Ginecologia", description: "Salud del sistema reproductor femenino" },
+    { name: "Psiquiatria", description: "Evaluacion y tratamiento de la salud mental" },
+    { name: "Nutricion", description: "Asesoria alimentaria y planes nutricionales" },
+  ];
 
-    update: {},
+  // Tipado estricto usando el tipo generado por Prisma para evitar errores de linter
+  const specialties: Record<string, Specialty> = {};
 
-    create: {
-      name: "Dr. Carlos Ramirez",
-      email: "medico@demo.com",
-      password,
-      role: Role.MEDICO,
-
-      doctorProfile: {
-        create: {
-          licenseNumber: "MED-2026-001",
-        },
-      },
-    },
-  });
-
-  /*
-   * ESPECIALIDADES
-   */
-  const cardiology = await prisma.specialty.upsert({
-    where: {
-      name: "Cardiologia",
-    },
-
-    update: {},
-
-    create: {
-      name: "Cardiologia",
-      description: "Especialidad cardiologica",
-    },
-  });
-
-  const dermatology = await prisma.specialty.upsert({
-    where: {
-      name: "Dermatologia",
-    },
-
-    update: {},
-
-    create: {
-      name: "Dermatologia",
-      description: "Especialidad dermatologica",
-    },
-  });
-
-  /*
-   * PERFIL MEDICO
-   */
-  const doctorProfile =
-    await prisma.doctorProfile.findUnique({
-      where: {
-        userId: doctorUser.id,
-      },
+  for (const spec of specialtiesData) {
+    const createdSpec = await prisma.specialty.upsert({
+      where: { name: spec.name },
+      update: {},
+      create: spec,
     });
-
-  if (!doctorProfile) {
-    throw new Error(
-      "No se encontro el perfil medico"
-    );
+    specialties[spec.name] = createdSpec;
   }
 
   /*
-   * RELACION MEDICO-ESPECIALIDAD
+   * 4. MÉDICOS 
    */
-  await prisma.doctorSpecialty.upsert({
-    where: {
-      doctorId_specialtyId: {
-        doctorId: doctorProfile.id,
-        specialtyId: cardiology.id,
-      },
+  const doctorsData = [
+    {
+      name: "Dr. Carlos Ramirez",
+      email: "medico@demo.com",
+      license: "MED-2026-001",
+      specs: ["Cardiologia", "Dermatologia"]
     },
-
-    update: {},
-
-    create: {
-      doctorId: doctorProfile.id,
-      specialtyId: cardiology.id,
+    {
+      name: "Dra. Ana Martinez",
+      email: "ana.martinez@demo.com",
+      license: "MED-2026-002",
+      specs: ["Pediatria"]
     },
-  });
-
-  await prisma.doctorSpecialty.upsert({
-    where: {
-      doctorId_specialtyId: {
-        doctorId: doctorProfile.id,
-        specialtyId: dermatology.id,
-      },
+    {
+      name: "Dr. Luis Fernandez",
+      email: "luis.fernandez@demo.com",
+      license: "MED-2026-003",
+      specs: ["Traumatologia"]
     },
-
-    update: {},
-
-    create: {
-      doctorId: doctorProfile.id,
-      specialtyId: dermatology.id,
+    {
+      name: "Dra. Sofia Castro",
+      email: "sofia.castro@demo.com",
+      license: "MED-2026-004",
+      specs: ["Ginecologia", "Pediatria"]
     },
-  });
+    {
+      name: "Dr. Alejandro Gomez",
+      email: "alejandro.gomez@demo.com",
+      license: "MED-2026-005",
+      specs: ["Medicina General"]
+    },
+    {
+      name: "Dra. Elena Rostova",
+      email: "elena.rostova@demo.com",
+      license: "MED-2026-006",
+      specs: ["Odontologia"]
+    },
+    {
+      name: "Dr. Javier Herrera",
+      email: "javier.herrera@demo.com",
+      license: "MED-2026-007",
+      specs: ["Psiquiatria"]
+    },
+    {
+      name: "Dra. Claudia Rios",
+      email: "claudia.rios@demo.com",
+      license: "MED-2026-008",
+      specs: ["Nutricion", "Medicina General"]
+    }
+  ];
 
-  /*
-   * DISPONIBILIDAD
-   */
+  // Fechas base (Mañana y pasado mañana)
   const tomorrow = new Date();
-
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const startTime = new Date(tomorrow);
+  const dayAfterTomorrow = new Date();
+  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
 
-  startTime.setHours(9, 0, 0, 0);
+  for (const doc of doctorsData) {
+    // A) Crear/Actualizar Cuenta de Usuario
+    const doctorUser = await prisma.user.upsert({
+      where: { email: doc.email },
+      update: {},
+      create: {
+        name: doc.name,
+        email: doc.email,
+        password,
+        role: Role.MEDICO,
+        doctorProfile: {
+          create: {
+            licenseNumber: doc.license,
+          },
+        },
+      },
+    });
 
-  const endTime = new Date(tomorrow);
+    // B) Obtener el Perfil Médico vinculado
+    const doctorProfile = await prisma.doctorProfile.findUnique({
+      where: { userId: doctorUser.id },
+    });
 
-  endTime.setHours(10, 0, 0, 0);
+    if (!doctorProfile) {
+      throw new Error(`No se encontro el perfil para ${doc.name}`);
+    }
 
-  await prisma.availability.create({
-    data: {
-      doctorId: doctorProfile.id,
-      date: tomorrow,
-      startTime,
-      endTime,
-    },
-  });
+    // C) Crear Relaciones Médico-Especialidad
+    for (const specName of doc.specs) {
+      const specId = specialties[specName].id;
+      await prisma.doctorSpecialty.upsert({
+        where: {
+          doctorId_specialtyId: {
+            doctorId: doctorProfile.id,
+            specialtyId: specId,
+          },
+        },
+        update: {},
+        create: {
+          doctorId: doctorProfile.id,
+          specialtyId: specId,
+        },
+      });
+    }
 
-  console.log("✅ Seed completado");
+    /*
+     * 5. DISPONIBILIDADES MÚLTIPLES
+     */
+    const scheduleBlocks = [
+      // Turnos de la Mañana
+      { startH: 8, startM: 0, endH: 9, endM: 0, targetDate: tomorrow },
+      { startH: 9, startM: 0, endH: 10, endM: 0, targetDate: tomorrow },
+      { startH: 10, startM: 0, endH: 11, endM: 0, targetDate: tomorrow },
+      { startH: 11, startM: 0, endH: 12, endM: 0, targetDate: tomorrow },
+      // Turnos de la Tarde
+      { startH: 14, startM: 0, endH: 15, endM: 0, targetDate: tomorrow },
+      { startH: 15, startM: 0, endH: 16, endM: 0, targetDate: tomorrow },
+      // Mañana del siguiente día
+      { startH: 9, startM: 0, endH: 10, endM: 0, targetDate: dayAfterTomorrow },
+      { startH: 10, startM: 0, endH: 11, endM: 0, targetDate: dayAfterTomorrow },
+    ];
+
+    for (const block of scheduleBlocks) {
+      const dateOnly = new Date(block.targetDate);
+      dateOnly.setHours(0, 0, 0, 0);
+
+      const startTime = new Date(block.targetDate);
+      startTime.setHours(block.startH, block.startM, 0, 0);
+
+      const endTime = new Date(block.targetDate);
+      endTime.setHours(block.endH, block.endM, 0, 0); 
+
+      const existingAvailability = await prisma.availability.findFirst({
+        where: {
+          doctorId: doctorProfile.id,
+          startTime: startTime,
+        },
+      });
+
+      if (!existingAvailability) {
+        await prisma.availability.create({
+          data: {
+            doctorId: doctorProfile.id,
+            date: dateOnly,
+            startTime,
+            endTime,
+          },
+        });
+      }
+    }
+  }
+
+  console.log("✅ Seed completado perfectamente. Cuentas creadas sin errores.");
 }
 
 main()
