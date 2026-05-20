@@ -18,6 +18,16 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    
+    ollama:
+    image: ollama/ollama:latest
+    container_name: medismart-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434" # Puerto estándar para pegarle desde Next.js
+    volumes:
+      - ollama_data:/root/.ollama # Persistencia del modelo Llama 3.1
 
 volumes:
   mysql_data:
+  ollama_data:
