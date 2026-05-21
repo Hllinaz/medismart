@@ -75,7 +75,6 @@ export default function AppointmentsPage() {
     availabilityId: "",
     specialtyId: "",
     symptoms: "",
-    priority: "NORMAL",
   });
 
   const [evaluationForm, setEvaluationForm] = useState({
@@ -216,7 +215,6 @@ export default function AppointmentsPage() {
           availabilityId: "",
           specialtyId: "",
           symptoms: "",
-          priority: "NORMAL",
         });
         setSelectedSpecialty("");
         setSelectedDoctor("");
@@ -502,26 +500,10 @@ export default function AppointmentsPage() {
                   }
                   placeholder="Describe brevemente el motivo"
                 />
-              </label>
 
-              <label className="grid gap-2">
-                <span className="text-sm font-semibold text-slate-700">
-                  Prioridad
-                </span>
-                <select
-                  className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
-                  value={form.priority}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      priority: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="NORMAL">NORMAL</option>
-                  <option value="HIGH">HIGH</option>
-                  <option value="LOW">LOW</option>
-                </select>
+                <p className="mt-2 text-sm text-slate-500">
+                  La prioridad será asignada automáticamente según los síntomas reportados.
+                </p>
               </label>
 
               <button

@@ -99,7 +99,6 @@ export async function POST(request: NextRequest) {
     }
 
     const priority = calculatePriority({
-      priority: body.priority,
       symptoms: body.symptoms,
       urgent: body.urgent,
     });

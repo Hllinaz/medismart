@@ -21,32 +21,41 @@ export function parseRequiredDate(value: unknown, field: string) {
   return date;
 }
 
-export function normalizePriority(value: unknown): Priority {
-  if (value === "HIGH" || value === "NORMAL" || value === "LOW") {
-    return value;
-  }
-
-  return "NORMAL";
-}
-
 export function calculatePriority(input: {
-  priority?: unknown;
   symptoms?: unknown;
   urgent?: unknown;
 }): Priority {
-  const explicitPriority = normalizePriority(input.priority);
-
-  if (explicitPriority !== "NORMAL") {
-    return explicitPriority;
-  }
 
   if (input.urgent === true) {
     return "HIGH";
   }
 
-  const symptoms = typeof input.symptoms === "string" ? input.symptoms.toLowerCase() : "";
-  const highSignals = ["dolor pecho", "pecho", "respirar", "sangrado", "desmayo", "urgente"];
-  const lowSignals = ["control", "revision", "revisión", "rutina"];
+  const symptoms =
+    typeof input.symptoms === "string"
+      ? input.symptoms.toLowerCase()
+      : "";
+
+  const highSignals = [
+    "dolor pecho",
+    "dolor en el pecho",
+    "pecho",
+    "respirar",
+    "falta de aire",
+    "sangrado",
+    "desmayo",
+    "convulsión",
+    "urgente",
+    "fiebre alta",
+  ];
+
+  const lowSignals = [
+    "control",
+    "revision",
+    "revisión",
+    "rutina",
+    "chequeo",
+    "seguimiento",
+  ];
 
   if (highSignals.some((signal) => symptoms.includes(signal))) {
     return "HIGH";
