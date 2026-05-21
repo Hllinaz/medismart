@@ -21,6 +21,68 @@ export function parseRequiredDate(value: unknown, field: string) {
   return date;
 }
 
+export function parseNonNegativeInteger(value: unknown, field: string) {
+  const numberValue =
+    typeof value === "number" || typeof value === "string"
+      ? Number(value)
+      : Number.NaN;
+
+  if (!Number.isInteger(numberValue) || numberValue < 0) {
+    throw new Error(`${field} debe ser un numero entero mayor o igual a 0`);
+  }
+
+  return numberValue;
+}
+
+export function parsePositiveInteger(value: unknown, field: string) {
+  const numberValue = parseNonNegativeInteger(value, field);
+
+  if (numberValue <= 0) {
+    throw new Error(`${field} debe ser mayor que 0`);
+  }
+
+  return numberValue;
+}
+
+export function generateAvailabilitySlots(params: {
+  date: Date;
+  startTime: Date;
+  endTime: Date;
+  durationMinutes: number;
+  breakMinutes: number;
+}) {
+  const slots: Array<{ date: Date; startTime: Date; endTime: Date }> = [];
+  const slotDurationMs = params.durationMinutes * 60 * 1000;
+  const breakDurationMs = params.breakMinutes * 60 * 1000;
+  let cursor = new Date(params.startTime);
+
+  while (cursor.getTime() + slotDurationMs <= params.endTime.getTime()) {
+    const slotStart = new Date(cursor);
+    const slotEnd = new Date(cursor.getTime() + slotDurationMs);
+
+    slots.push({
+      date: params.date,
+      startTime: slotStart,
+      endTime: slotEnd,
+    });
+
+    cursor = new Date(slotEnd.getTime() + breakDurationMs);
+  }
+
+  if (!slots.length) {
+    throw new Error("El bloque no genera cupos con la duracion seleccionada");
+  }
+
+  return slots;
+}
+
+export function hasTimeOverlap(
+  first: { startTime: Date; endTime: Date },
+  second: { startTime: Date; endTime: Date },
+) {
+  return first.startTime < second.endTime && first.endTime > second.startTime;
+}
+
 export function calculatePriority(input: {
   symptoms?: unknown;
   urgent?: unknown;

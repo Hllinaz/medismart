@@ -1,7 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authErrorResponse, requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getDoctorProfileId, parseRequiredDate } from "@/lib/scheduling";
+import {
+  generateAvailabilitySlots,
+  getDoctorProfileId,
+  hasTimeOverlap,
+  parseNonNegativeInteger,
+  parsePositiveInteger,
+  parseRequiredDate,
+} from "@/lib/scheduling";
 
 function dateRange(date: Date) {
   const start = new Date(date);
@@ -77,6 +84,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await requireRole(request, ["ADMIN", "MEDICO"]);
     const body = await request.json();
+    const mode = body.mode === "bulk" ? "bulk" : "single";
     const requestedDoctorId = typeof body.doctorId === "string" ? body.doctorId : "";
     const date = parseRequiredDate(body.date, "date");
     const startTime = parseRequiredDate(body.startTime, "startTime");
@@ -99,6 +107,64 @@ export async function POST(request: NextRequest) {
 
     if (!doctor) {
       return NextResponse.json({ error: "Medico no encontrado o inactivo" }, { status: 404 });
+    }
+
+    if (mode === "bulk") {
+      const durationMinutes = parsePositiveInteger(body.durationMinutes, "durationMinutes");
+      const breakMinutes = parseNonNegativeInteger(body.breakMinutes ?? 0, "breakMinutes");
+      const slots = generateAvailabilitySlots({
+        date,
+        startTime,
+        endTime,
+        durationMinutes,
+        breakMinutes,
+      });
+
+      const existingAvailability = await prisma.availability.findMany({
+        where: {
+          doctorId,
+          startTime: { lt: endTime },
+          endTime: { gt: startTime },
+        },
+        select: {
+          id: true,
+          startTime: true,
+          endTime: true,
+        },
+      });
+
+      const conflictingSlots = slots.filter((slot) =>
+        existingAvailability.some((existing) => hasTimeOverlap(slot, existing)),
+      );
+
+      if (conflictingSlots.length) {
+        return NextResponse.json(
+          {
+            error: `El bloque tiene ${conflictingSlots.length} cupo(s) cruzados con horarios existentes`,
+          },
+          { status: 409 },
+        );
+      }
+
+      const result = await prisma.$transaction(async (tx) =>
+        tx.availability.createMany({
+          data: slots.map((slot) => ({
+            doctorId,
+            date: slot.date,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            isBooked: false,
+          })),
+        }),
+      );
+
+      return NextResponse.json(
+        {
+          count: result.count,
+          availability: slots,
+        },
+        { status: 201 },
+      );
     }
 
     const overlap = await prisma.availability.findFirst({

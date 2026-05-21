@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
-import { EmptyState } from "@/components/appointments/EmptyState";
+import { AvailabilityBoard } from "@/components/availability/AvailabilityBoard";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 
 type Role = "PACIENTE" | "MEDICO" | "ADMIN";
@@ -22,6 +22,12 @@ type Doctor = {
     email: string;
     status: string;
   };
+  specialties?: Array<{
+    specialty: {
+      id: string;
+      name: string;
+    };
+  }>;
 };
 
 type Availability = {
@@ -38,10 +44,13 @@ export default function AvailabilityPage() {
     useState<AuthUser | null>(null);
 
   const [form, setForm] = useState({
+    mode: "single" as "single" | "bulk",
     doctorId: "",
     date: "",
     startHour: "09:00",
+    endHour: "12:00",
     durationMinutes: 60,
+    breakMinutes: 0,
   });
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -114,8 +123,12 @@ export default function AvailabilityPage() {
 
     try {
       const startTime = new Date(`${form.date}T${form.startHour}`);
-
-      const endTime = new Date(startTime.getTime() + Number(form.durationMinutes) * 60 * 1000)
+      const endTime =
+        form.mode === "bulk"
+          ? new Date(`${form.date}T${form.endHour}`)
+          : new Date(
+            startTime.getTime() + Number(form.durationMinutes) * 60 * 1000,
+          );
 
       const response = await fetch(
         "/api/availability",
@@ -130,10 +143,13 @@ export default function AvailabilityPage() {
           },
 
           body: JSON.stringify({
+            mode: form.mode,
             doctorId: form.doctorId,
             date: form.date,
             startTime: startTime.toISOString(),
             endTime: endTime.toISOString(),
+            durationMinutes: form.durationMinutes,
+            breakMinutes: form.breakMinutes,
           }),
         }
       );
@@ -142,7 +158,9 @@ export default function AvailabilityPage() {
 
       setMessage(
         response.ok
-          ? "Horario creado correctamente."
+          ? form.mode === "bulk"
+            ? `Bloque creado correctamente con ${data.count ?? 0} cupos.`
+            : "Horario creado correctamente."
           : data.error
       );
 
@@ -166,19 +184,12 @@ export default function AvailabilityPage() {
     });
   }, []);
 
-  const bookedCount = availability.filter(
-    (slot) => slot.isBooked
-  ).length;
-
-  const freeCount =
-    availability.length - bookedCount;
-
   return (
     <DashboardShell
       role={user?.role}
       user={user}
     >
-      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="mb-8">
 
         <div>
           <h1 className="text-4xl font-bold text-slate-900">
@@ -188,29 +199,6 @@ export default function AvailabilityPage() {
           <p className="mt-3 text-slate-500">
             Gestiona horarios medicos y disponibilidad.
           </p>
-        </div>
-
-        <div className="flex gap-4">
-
-          <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
-            <p className="text-sm font-semibold text-slate-500">
-              Libres
-            </p>
-
-            <p className="mt-1 text-3xl font-bold text-emerald-600">
-              {freeCount}
-            </p>
-          </div>
-
-          <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
-            <p className="text-sm font-semibold text-slate-500">
-              Ocupados
-            </p>
-
-            <p className="mt-1 text-3xl font-bold text-red-600">
-              {bookedCount}
-            </p>
-          </div>
         </div>
       </div>
 
@@ -237,6 +225,26 @@ export default function AvailabilityPage() {
           <h2 className="text-2xl font-bold text-slate-900">
             Nuevo horario
           </h2>
+
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-slate-700">
+              Tipo de creación
+            </span>
+
+            <select
+              className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+              value={form.mode}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  mode: event.target.value as "single" | "bulk",
+                }))
+              }
+            >
+              <option value="single">Horario individual</option>
+              <option value="bulk">Bloque de horarios</option>
+            </select>
+          </label>
 
           {user?.role === "ADMIN" ? (
             <label className="grid gap-2">
@@ -296,8 +304,31 @@ export default function AvailabilityPage() {
             />
           </label>
 
-          <label>
-            Duración
+          {form.mode === "bulk" ? (
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold text-slate-700">
+                Hora de fin del bloque
+              </span>
+
+              <input
+                type="time"
+                step="60"
+                value={form.endHour}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    endHour: event.target.value,
+                  }))
+                }
+                className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+              />
+            </label>
+          ) : null}
+
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-slate-700">
+              {form.mode === "bulk" ? "Duración por cupo" : "Duración"}
+            </span>
             <select
               className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
               value={form.durationMinutes}
@@ -315,6 +346,36 @@ export default function AvailabilityPage() {
               <option value="120">2 horas</option>
             </select>
           </label>
+
+          {form.mode === "bulk" ? (
+            <>
+              <label className="grid gap-2">
+                <span className="text-sm font-semibold text-slate-700">
+                  Descanso entre cupos
+                </span>
+                <select
+                  className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
+                  value={form.breakMinutes}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      breakMinutes: Number(event.target.value),
+                    }))
+                  }
+                >
+                  <option value="0">Sin descanso</option>
+                  <option value="5">5 minutos</option>
+                  <option value="10">10 minutos</option>
+                  <option value="15">15 minutos</option>
+                  <option value="30">30 minutos</option>
+                </select>
+              </label>
+
+              <div className="rounded-2xl bg-teal-50 p-4 text-sm font-medium text-teal-800">
+                {getBulkPreview(form)}
+              </div>
+            </>
+          ) : null}
 
           <button
             type="submit"
@@ -337,71 +398,11 @@ export default function AvailabilityPage() {
           </button>
         </form>
 
-        <section className="rounded-3xl bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-xl font-bold text-slate-900">
-            Horario activo
-          </h2>
-
-          {availability.length ? (
-            <div className="overflow-hidden rounded-2xl border border-slate-100">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold">Fecha</th>
-                    <th className="px-4 py-3 font-semibold">Inicio</th>
-                    <th className="px-4 py-3 font-semibold">Fin</th>
-                    <th className="px-4 py-3 font-semibold">Médico</th>
-                    <th className="px-4 py-3 font-semibold">Estado</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-100">
-                  {availability.map((slot) => (
-                    <tr key={slot.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 text-slate-700">
-                        {new Date(slot.date).toLocaleDateString("es-CO")}
-                      </td>
-
-                      <td className="px-4 py-3 text-slate-700">
-                        {new Date(slot.startTime).toLocaleTimeString("es-CO", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </td>
-
-                      <td className="px-4 py-3 text-slate-700">
-                        {new Date(slot.endTime).toLocaleTimeString("es-CO", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </td>
-
-                      <td className="px-4 py-3 font-medium text-slate-900">
-                        {slot.doctor.user.name}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${slot.isBooked
-                            ? "bg-red-50 text-red-700"
-                            : "bg-emerald-50 text-emerald-700"
-                            }`}
-                        >
-                          {slot.isBooked ? "Ocupado" : "Libre"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState
-              title="No hay horarios registrados"
-              description="Los horarios creados apareceran en esta seccion."
-            />
-          )}
-        </section>
+        <AvailabilityBoard
+          availability={availability}
+          doctors={doctors}
+          role={user?.role}
+        />
       </div>
     </DashboardShell>
   );
@@ -434,4 +435,39 @@ function InputField({
       />
     </label>
   );
+}
+
+function getBulkPreview(form: {
+  date: string;
+  startHour: string;
+  endHour: string;
+  durationMinutes: number;
+  breakMinutes: number;
+}) {
+  if (!form.date || !form.startHour || !form.endHour) {
+    return "Completa fecha, inicio y fin para calcular los cupos.";
+  }
+
+  const startTime = new Date(`${form.date}T${form.startHour}`);
+  const endTime = new Date(`${form.date}T${form.endHour}`);
+  const durationMs = Number(form.durationMinutes) * 60 * 1000;
+  const breakMs = Number(form.breakMinutes) * 60 * 1000;
+
+  if (startTime >= endTime) {
+    return "La hora de fin debe ser posterior a la hora de inicio.";
+  }
+
+  let count = 0;
+  let cursor = startTime.getTime();
+
+  while (cursor + durationMs <= endTime.getTime()) {
+    count += 1;
+    cursor += durationMs + breakMs;
+  }
+
+  if (!count) {
+    return "El bloque no alcanza para crear cupos con esa duración.";
+  }
+
+  return `Se crearán ${count} cupo(s) de ${form.durationMinutes} minutos entre ${form.startHour} y ${form.endHour}.`;
 }
