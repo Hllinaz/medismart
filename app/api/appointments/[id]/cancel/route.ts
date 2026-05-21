@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { authErrorResponse, requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { reassignAvailability } from "@/lib/scheduling";
+import { notifyAppointmentCancelled } from "@/lib/notifications";
 
 type RouteContext = {
   params: Promise<{
@@ -55,29 +56,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
       }
 
-      await tx.notification.createMany({
-        data: [
-          {
-            userId: appointment.patient.userId,
-            appointmentId: appointment.id,
-            type: "CANCELLATION",
-            message: cancelledByDoctor
-              ? "Tu cita fue cancelada por el medico y queda pendiente de reasignacion."
-              : "Tu cita fue cancelada correctamente.",
-          },
-          {
-            userId: appointment.doctor.userId,
-            appointmentId: appointment.id,
-            type: "CANCELLATION",
-            message:
-              user.role === "PACIENTE"
-                ? `La cita con el paciente ${appointment.patient.user.name} fue cancelada.`
-                : `La cita con el paciente ${appointment.patient.user.name} fue cancelada por ${user.role === "MEDICO" ? "el medico" : "administracion"}.`,
-          },
-        ],
-      });
-
       return updated;
+    });
+
+    await notifyAppointmentCancelled({
+      patientUserId: appointment.patient.userId,
+      doctorUserId: appointment.doctor.userId,
+      appointmentId: appointment.id,
+      patientName: appointment.patient.user.name,
+      cancelledBy: user.role,
     });
 
     const reassignedAppointment = cancelledByDoctor && freedAvailabilityId

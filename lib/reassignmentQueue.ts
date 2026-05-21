@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { notifyAppointmentReassigned } from "./notifications";
 import type { Priority } from "@prisma/client";
 
 const priorityRank: Record<Priority, number> = {
@@ -19,6 +20,7 @@ export async function processReassignmentQueue() {
           specialties: true,
         },
       },
+      specialty: true,
     },
   });
 
@@ -33,15 +35,15 @@ export async function processReassignmentQueue() {
   const results = [];
 
   for (const appointment of queue) {
-    const specialtyIds = appointment.doctor.specialties.map(
-      (item) => item.specialtyId
-    );
+    const specialtyIds = appointment.specialtyId
+      ? [appointment.specialtyId]
+      : appointment.doctor.specialties.map((item) => item.specialtyId);
 
     const newAvailability = await prisma.availability.findFirst({
       where: {
         isBooked: false,
-        doctorId: { not: appointment.doctorId},
-        startTime: { gt: new Date(appointment.appointmentDate.getTime() + 24 * 60 * 60 * 1000) },
+        doctorId: { not: appointment.doctorId },
+        startTime: { gt: new Date() },
         doctor: { specialties: { some: { specialtyId: { in: specialtyIds } } } },
       },
       orderBy: {
@@ -72,18 +74,22 @@ export async function processReassignmentQueue() {
           availabilityId: newAvailability.id,
           appointmentDate: newAvailability.startTime,
           status: "SCHEDULED",
-        },
-      });
-
-      await tx.notification.create({
-        data: {
-          userId: appointment.patient.userId,
-          appointmentId: appointment.id,
-          type: "REASSIGNMENT",
-          message: "Tu cita fue reasignada automáticamente.",
+          wasReassigned: true,
         },
       });
     });
+
+    const newDoctor = await prisma.doctorProfile.findUnique({
+      where: { id: newAvailability.doctorId },
+    });
+
+    if (newDoctor) {
+      await notifyAppointmentReassigned({
+        patientUserId: appointment.patient.userId,
+        newDoctorUserId: newDoctor.userId,
+        appointmentId: appointment.id,
+      });
+    }
 
     results.push({
       appointmentId: appointment.id,

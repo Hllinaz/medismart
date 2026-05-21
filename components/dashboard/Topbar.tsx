@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Bell, LogOut, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 
 type Role = "PACIENTE" | "MEDICO" | "ADMIN";
 
@@ -34,32 +35,34 @@ export function Topbar({ user }: TopbarProps) {
   }
 
   useEffect(() => {
+    let active = true;
+
     async function loadNotifications() {
       try {
-        const response = await fetch(
-          "/api/notifications",
-          {
-            credentials: "include",
-          }
-        );
+        const response = await fetch("/api/notifications", {
+          credentials: "include",
+        });
 
         const data = await response.json();
 
-        if (response.ok) {
-          setNotificationCount(
-            data.notifications?.length ?? 0
-          );
+        if (response.ok && active) {
+          setNotificationCount(data.unreadCount ?? 0);
         }
       } catch {
-        console.error(
-          "Error loading notifications"
-        );
+        console.error("Error loading notifications");
       }
     }
 
-    queueMicrotask(() => {
+    void loadNotifications();
+
+    const interval = window.setInterval(() => {
       void loadNotifications();
-    });
+    }, 15000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
   }, []);
 
   const initials =
@@ -89,55 +92,7 @@ export function Topbar({ user }: TopbarProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => router.push("/dashboard/notifications")}
-            className="
-                        relative
-                        flex
-                        h-11
-                        w-11
-                        items-center
-                        justify-center
-                        rounded-2xl
-                        border
-                        border-slate-200
-                        bg-white
-                        text-slate-500
-                        transition
-                        hover:border-teal-200
-                        hover:bg-teal-50
-                        hover:text-teal-700
-                      "
-            title="Notificaciones"
-          >
-            <Bell size={18} />
-
-            {notificationCount > 0 ? (
-              <span
-                className="
-                          absolute
-                          -right-1
-                          -top-1
-                          flex
-                          h-5
-                          min-w-5
-                          items-center
-                          justify-center
-                          rounded-full
-                          bg-red-500
-                          px-1
-                          text-[10px]
-                          font-bold
-                          text-white
-                        "
-              >
-                {notificationCount > 9
-                  ? "9+"
-                  : notificationCount}
-              </span>
-            ) : null}
-          </button>
+          <NotificationDropdown />
 
           <div className="hidden text-right sm:block">
             <p className="text-sm font-semibold text-slate-900">

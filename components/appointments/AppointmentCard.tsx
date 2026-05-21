@@ -54,20 +54,18 @@ export function AppointmentCard({
             Paciente: {appointment.patient.user.name}
           </p>
 
-          <p className="mt-2 text-sm text-slate-500">
-            Especialidad: {appointment.specialty?.name ?? "No especificada"}
-          </p>
+          <div className="mt-2">
+            <span className="rounded-full bg-cyan-50 px-2 py-1 text-xs font-medium text-cyan-700">
+              Especialidad: {appointment.specialty?.name ?? "No especificada"}
+            </span>
+          </div>
 
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-slate-500">
             Síntomas: {appointment.symptoms?.trim() || "No registrados"}
           </p>
 
           <p className="mt-2 text-sm text-slate-500">
             {new Date(appointment.appointmentDate).toLocaleString()}
-          </p>
-
-          <p className="mt-4 text-xs text-slate-400">
-            {appointment.id}
           </p>
         </div>
 

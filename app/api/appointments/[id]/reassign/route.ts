@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authErrorResponse, requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { notifyReassignmentQueued } from "@/lib/notifications";
 
 type RouteContext = {
   params: Promise<{
@@ -67,25 +68,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         },
       });
 
-      await tx.notification.create({
-        data: {
-          userId: appointment.patient.userId,
-          appointmentId: appointment.id,
-          type: "REASSIGNMENT",
-          message: "Tu cita fue enviada a cola de reasignación.",
-        },
-      });
-
-      await tx.notification.create({
-        data: {
-          userId: appointment.doctor.userId,
-          appointmentId: appointment.id,
-          type: "REASSIGNMENT",
-          message: "La cita fue enviada a cola de reasignación.",
-        },
-      });
-
       return updated;
+    });
+
+    await notifyReassignmentQueued({
+      patientUserId: appointment.patient.userId,
+      doctorUserId: appointment.doctor.userId,
+      appointmentId: appointment.id,
     });
 
     return NextResponse.json({
