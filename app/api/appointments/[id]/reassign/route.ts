@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authErrorResponse, requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { reassignAvailability } from "@/lib/scheduling";
 
 type RouteContext = {
   params: Promise<{
@@ -12,19 +11,87 @@ type RouteContext = {
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     await requireRole(request, ["ADMIN", "MEDICO"]);
+
     const { id } = await context.params;
+
     const appointment = await prisma.appointment.findUnique({
       where: { id },
-      select: { availabilityId: true },
+      include: {
+        patient: {
+          include: {
+            user: true,
+          },
+        },
+        doctor: {
+          include: {
+            user: true,
+          },
+        },
+      },
     });
 
-    if (!appointment?.availabilityId) {
-      return NextResponse.json({ error: "La cita no tiene disponibilidad para reasignar" }, { status: 400 });
+    if (!appointment) {
+      return NextResponse.json(
+        { error: "La cita no existe" },
+        { status: 404 }
+      );
     }
 
-    const reassignedAppointment = await reassignAvailability(appointment.availabilityId);
+    if (appointment.status === "PENDING_REASSIGNMENT") {
+      return NextResponse.json({
+        message: "La cita ya está en cola de reasignación",
+        appointment,
+      });
+    }
 
-    return NextResponse.json({ reassignedAppointment });
+    if (appointment.status === "CANCELLED") {
+      return NextResponse.json(
+        { error: "No se puede reasignar una cita cancelada" },
+        { status: 400 }
+      );
+    }
+
+    const updatedAppointment = await prisma.$transaction(async (tx) => {
+      if (appointment.availabilityId) {
+        await tx.availability.update({
+          where: { id: appointment.availabilityId },
+          data: { isBooked: false },
+        });
+      }
+
+      const updated = await tx.appointment.update({
+        where: { id: appointment.id },
+        data: {
+          status: "PENDING_REASSIGNMENT",
+          availabilityId: null,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: appointment.patient.userId,
+          appointmentId: appointment.id,
+          type: "REASSIGNMENT",
+          message: "Tu cita fue enviada a cola de reasignación.",
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: appointment.doctor.userId,
+          appointmentId: appointment.id,
+          type: "REASSIGNMENT",
+          message: "La cita fue enviada a cola de reasignación.",
+        },
+      });
+
+      return updated;
+    });
+
+    return NextResponse.json({
+      message: "Cita enviada a cola de reasignación",
+      appointment: updatedAppointment,
+    });
   } catch (error) {
     const authResponse = authErrorResponse(error);
 
@@ -36,6 +103,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "Error al reasignar cita" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Error al enviar cita a cola de reasignación" },
+      { status: 500 }
+    );
   }
 }
