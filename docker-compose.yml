@@ -18,8 +18,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-    
-    ollama:
+      
+  ollama:
     image: ollama/ollama:latest
     container_name: medismart-ollama
     restart: unless-stopped

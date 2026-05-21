@@ -24,11 +24,11 @@ export async function GET(request: NextRequest) {
       ...(patientId ? { patientId } : {}),
       ...(from || to
         ? {
-            appointmentDate: {
-              ...(from ? { gte: new Date(from) } : {}),
-              ...(to ? { lte: new Date(to) } : {}),
-            },
-          }
+          appointmentDate: {
+            ...(from ? { gte: new Date(from) } : {}),
+            ...(to ? { lte: new Date(to) } : {}),
+          },
+        }
         : {}),
     };
 
@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
         doctor: { include: { user: { select: { id: true, name: true, email: true, status: true } } } },
         availability: true,
         evaluation: true,
+        specialty: { select: { id: true, name: true, description: true } }
       },
     });
 
@@ -122,7 +123,19 @@ export async function POST(request: NextRequest) {
           patientId,
           doctorId: availability.doctorId,
           availabilityId,
+
+          specialtyId:
+            typeof body.specialtyId === "string"
+              ? body.specialtyId
+              : null,
+
+          symptoms:
+            typeof body.symptoms === "string"
+              ? body.symptoms
+              : null,
+
           appointmentDate: availability.startTime,
+
           priority,
           status: "SCHEDULED",
           wasReassigned: false,

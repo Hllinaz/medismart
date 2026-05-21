@@ -18,12 +18,22 @@ type Appointment = {
   status: string;
   priority: string;
   wasReassigned: boolean;
+
+  symptoms?: string | null;
+
+  specialty?: {
+    id: string;
+    name: string;
+    description?: string | null;
+  } | null;
+
   patient: {
     user: {
       name: string;
       email?: string;
     };
   };
+
   doctor: {
     user: {
       name: string;
@@ -256,6 +266,10 @@ export function WeeklyCalendar({
                             {appointment.patient.user.name}
                           </p>
 
+                          <p className="mt-1 truncate text-[11px] opacity-80">
+                            {appointment.specialty?.name ?? "Sin especialidad"}
+                          </p>
+
                           <p className="mt-1 text-xs opacity-80">
                             {new Date(
                               appointment.appointmentDate,
@@ -323,16 +337,35 @@ export function WeeklyCalendar({
             </div>
 
             <div className="grid gap-4 text-sm">
-              <Info label="Paciente" value={selected.patient.user.name} />
+              <Info
+                label="Paciente"
+                value={selected.patient.user.name}
+              />
+
               <Info
                 label="Correo"
                 value={selected.patient.user.email ?? "No disponible"}
               />
+
+              <Info
+                label="Especialidad"
+                value={selected.specialty?.name ?? "No especificada"}
+              />
+
+              <Info
+                label="Síntomas"
+                value={selected.symptoms?.trim() || "No registrados"}
+              />
+
               <Info
                 label="Fecha"
                 value={new Date(selected.appointmentDate).toLocaleString()}
               />
-              <Info label="Prioridad" value={selected.priority} />
+
+              <Info
+                label="Prioridad"
+                value={selected.priority}
+              />
             </div>
 
             {canCancel && selected.status === "SCHEDULED" ? (

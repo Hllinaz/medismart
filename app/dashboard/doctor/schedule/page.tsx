@@ -29,6 +29,14 @@ type Appointment = {
   priority: string;
   wasReassigned: boolean;
 
+  symptoms?: string | null;
+
+  specialty?: {
+    id: string;
+    name: string;
+    description?: string | null;
+  } | null;
+
   patient: {
     user: {
       name: string;

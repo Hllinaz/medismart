@@ -7,16 +7,21 @@ type AppointmentCardProps = {
     status: string;
     priority: string;
     wasReassigned: boolean;
+    symptoms?: string | null;
+    specialty?: {
+      id: string;
+      name: string;
+      description?: string | null;
+    } | null;
     patient: {
-      user: { name: string; };
+      user: { name: string };
     };
     doctor: {
-      user: { name: string; };
+      user: { name: string };
     };
   };
 
   loading?: boolean;
-
   onCancel?: () => void;
   onEvaluate?: () => void;
 };
@@ -30,7 +35,6 @@ export function AppointmentCard({
   return (
     <article className="rounded-3xl bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
-
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-xl font-bold text-slate-900">
@@ -45,17 +49,21 @@ export function AppointmentCard({
               </span>
             ) : null}
           </div>
-          
+
           <p className="mt-3 text-sm text-slate-500">
-            Paciente:
-            {" "}
-            {appointment.patient.user.name}
+            Paciente: {appointment.patient.user.name}
           </p>
 
           <p className="mt-2 text-sm text-slate-500">
-            {new Date(
-              appointment.appointmentDate
-            ).toLocaleString()}
+            Especialidad: {appointment.specialty?.name ?? "No especificada"}
+          </p>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Síntomas: {appointment.symptoms?.trim() || "No registrados"}
+          </p>
+
+          <p className="mt-2 text-sm text-slate-500">
+            {new Date(appointment.appointmentDate).toLocaleString()}
           </p>
 
           <p className="mt-4 text-xs text-slate-400">

@@ -22,7 +22,12 @@ type Availability = {
   isBooked: boolean;
   doctor: {
     user: { name: string };
-    specialties: Array<{ specialty: { name: string } }>;
+    specialties: Array<{
+      specialty: {
+        id: string;
+        name: string;
+      };
+    }>;
   };
 };
 
@@ -33,11 +38,30 @@ type Appointment = {
   priority: string;
   requestDate: string;
   wasReassigned: boolean;
-  patient: { user: { name: string } };
-  doctor: { user: { name: string } };
-  evaluation: { rating: number; comment: string | null } | null;
-};
+  symptoms?: string | null;
+  specialty?: {
+    id: string;
+    name: string;
+    description?: string | null;
+  } | null;
 
+  patient: {
+    user: {
+      name: string;
+    };
+  };
+
+  doctor: {
+    user: {
+      name: string;
+    };
+  };
+
+  evaluation: {
+    rating: number;
+    comment: string | null;
+  } | null;
+};
 export default function AppointmentsPage() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [availability, setAvailability] = useState<Availability[]>([]);
@@ -49,6 +73,7 @@ export default function AppointmentsPage() {
 
   const [form, setForm] = useState({
     availabilityId: "",
+    specialtyId: "",
     symptoms: "",
     priority: "NORMAL",
   });
@@ -187,7 +212,12 @@ export default function AppointmentsPage() {
       setMessage(response.ok ? "Cita agendada correctamente." : data.error);
 
       if (response.ok) {
-        setForm({ availabilityId: "", symptoms: "", priority: "NORMAL" });
+        setForm({
+          availabilityId: "",
+          specialtyId: "",
+          symptoms: "",
+          priority: "NORMAL",
+        });
         setSelectedSpecialty("");
         setSelectedDoctor("");
         setSelectedDate("");
@@ -307,10 +337,28 @@ export default function AppointmentsPage() {
                   className="h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-100"
                   value={selectedSpecialty}
                   onChange={(event) => {
-                    setSelectedSpecialty(event.target.value);
+                    const specialtyName = event.target.value;
+
+                    setSelectedSpecialty(specialtyName);
                     setSelectedDoctor("");
                     setSelectedDate("");
-                    setForm((current) => ({ ...current, availabilityId: "" }));
+
+                    const specialtySlot = availability.find((slot) =>
+                      slot.doctor.specialties.some(
+                        (item) => item.specialty.name === specialtyName,
+                      ),
+                    );
+
+                    const specialtyId =
+                      specialtySlot?.doctor.specialties.find(
+                        (item) => item.specialty.name === specialtyName,
+                      )?.specialty?.id ?? "";
+
+                    setForm((current) => ({
+                      ...current,
+                      availabilityId: "",
+                      specialtyId,
+                    }));
                   }}
                 >
                   <option value="">Escoge una especialidad</option>
