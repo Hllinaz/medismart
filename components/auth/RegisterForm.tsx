@@ -7,11 +7,11 @@ import { AuthInput } from "@/components/auth/AuthInput";
 
 export function RegisterForm() {
   const [form, setForm] = useState({
-    name: "Paciente Demo",
-    email: "paciente@demo.com",
-    phone: "3001234567",
-    dateOfBirth: "2000-01-01",
-    password: "password123",
+    name: "",
+    email: "",
+    phone: "",
+    dateOfBirth: "",
+    password: "",
   });
 
   const [loading, setLoading] = useState(false);

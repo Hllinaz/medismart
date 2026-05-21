@@ -11,8 +11,8 @@ export function LoginForm() {
   const router = useRouter();
 
   const [form, setForm] = useState({
-    email: "paciente@demo.com",
-    password: "password123",
+    email: "",
+    password: "",
   });
 
   const [loading, setLoading] = useState(false);

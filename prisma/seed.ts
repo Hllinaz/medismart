@@ -1,4 +1,11 @@
-import { PrismaClient, Role, Specialty } from "@prisma/client";
+import {
+  PrismaClient,
+  Role,
+  Specialty,
+  AppointmentStatus,
+  Priority,
+  NotificationType,
+} from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -8,12 +15,14 @@ async function main() {
 
   const password = await bcrypt.hash("password123", 10);
 
-  /*
-   * 1. ADMIN
-   */
-  await prisma.user.upsert({
+  const adminUser = await prisma.user.upsert({
     where: { email: "admin@demo.com" },
-    update: {},
+    update: {
+      name: "Admin Demo",
+      phone: "+573001112233",
+      dateOfBirth: new Date("1985-05-10"),
+      role: Role.ADMIN,
+    },
     create: {
       name: "Admin Demo",
       email: "admin@demo.com",
@@ -24,12 +33,14 @@ async function main() {
     },
   });
 
-  /*
-   * 2. PACIENTE
-   */
-  await prisma.user.upsert({
+  const patientUser = await prisma.user.upsert({
     where: { email: "paciente@demo.com" },
-    update: {},
+    update: {
+      name: "Paciente Demo",
+      phone: "+573002223344",
+      dateOfBirth: new Date("1998-09-21"),
+      role: Role.PACIENTE,
+    },
     create: {
       name: "Paciente Demo",
       email: "paciente@demo.com",
@@ -43,9 +54,14 @@ async function main() {
     },
   });
 
-  /*
-   * 3. ESPECIALIDADES
-   */
+  const patientProfile = await prisma.patientProfile.upsert({
+    where: { userId: patientUser.id },
+    update: {},
+    create: {
+      userId: patientUser.id,
+    },
+  });
+
   const specialtiesData = [
     { name: "Medicina General", description: "Atencion medica primaria y preventiva" },
     { name: "Odontologia", description: "Salud oral, dental y cuidado estomatologico" },
@@ -58,21 +74,21 @@ async function main() {
     { name: "Nutricion", description: "Asesoria alimentaria y planes nutricionales" },
   ];
 
-  // Tipado estricto usando el tipo generado por Prisma para evitar errores de linter
   const specialties: Record<string, Specialty> = {};
 
   for (const spec of specialtiesData) {
     const createdSpec = await prisma.specialty.upsert({
       where: { name: spec.name },
-      update: {},
+      update: {
+        description: spec.description,
+        isActive: true,
+      },
       create: spec,
     });
+
     specialties[spec.name] = createdSpec;
   }
 
-  /*
-   * 4. MÉDICOS 
-   */
   const doctorsData = [
     {
       name: "Dr. Carlos Ramirez",
@@ -80,7 +96,7 @@ async function main() {
       phone: "+573003334455",
       birthDate: "1980-03-15",
       license: "MED-2026-001",
-      specs: ["Cardiologia", "Dermatologia"]
+      specs: ["Cardiologia", "Dermatologia"],
     },
     {
       name: "Dra. Ana Martinez",
@@ -88,7 +104,7 @@ async function main() {
       phone: "+573003334456",
       birthDate: "1980-03-15",
       license: "MED-2026-002",
-      specs: ["Pediatria"]
+      specs: ["Pediatria"],
     },
     {
       name: "Dr. Luis Fernandez",
@@ -96,7 +112,7 @@ async function main() {
       phone: "+573003334465",
       birthDate: "1980-03-15",
       license: "MED-2026-003",
-      specs: ["Traumatologia"]
+      specs: ["Traumatologia"],
     },
     {
       name: "Dra. Sofia Castro",
@@ -104,7 +120,7 @@ async function main() {
       phone: "+573003334655",
       birthDate: "1980-03-15",
       license: "MED-2026-004",
-      specs: ["Ginecologia", "Pediatria"]
+      specs: ["Ginecologia", "Pediatria"],
     },
     {
       name: "Dr. Alejandro Gomez",
@@ -112,7 +128,7 @@ async function main() {
       phone: "+573003234455",
       birthDate: "1980-03-15",
       license: "MED-2026-005",
-      specs: ["Medicina General"]
+      specs: ["Medicina General"],
     },
     {
       name: "Dra. Elena Rostova",
@@ -120,7 +136,7 @@ async function main() {
       phone: "+573003734455",
       birthDate: "1980-03-15",
       license: "MED-2026-006",
-      specs: ["Odontologia"]
+      specs: ["Odontologia"],
     },
     {
       name: "Dr. Javier Herrera",
@@ -128,7 +144,7 @@ async function main() {
       phone: "+573003834455",
       birthDate: "1980-03-15",
       license: "MED-2026-007",
-      specs: ["Psiquiatria"]
+      specs: ["Psiquiatria"],
     },
     {
       name: "Dra. Claudia Rios",
@@ -136,11 +152,12 @@ async function main() {
       phone: "+573013234455",
       birthDate: "1980-03-15",
       license: "MED-2026-008",
-      specs: ["Nutricion", "Medicina General"]
-    }
+      specs: ["Nutricion", "Medicina General"],
+    },
   ];
 
-  // Fechas base (Mañana y pasado mañana)
+  const doctorProfiles: Record<string, string> = {};
+
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -148,7 +165,6 @@ async function main() {
   dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
 
   for (const doc of doctorsData) {
-    // A) Crear/Actualizar Cuenta de Usuario
     const doctorUser = await prisma.user.upsert({
       where: { email: doc.email },
       update: {
@@ -167,7 +183,6 @@ async function main() {
       },
     });
 
-    // B) Obtener el Perfil Médico vinculado
     const doctorProfile = await prisma.doctorProfile.upsert({
       where: { userId: doctorUser.id },
       update: {
@@ -180,37 +195,31 @@ async function main() {
       },
     });
 
-    // C) Crear Relaciones Médico-Especialidad
+    doctorProfiles[doc.email] = doctorProfile.id;
+
     for (const specName of doc.specs) {
-      const specId = specialties[specName].id;
       await prisma.doctorSpecialty.upsert({
         where: {
           doctorId_specialtyId: {
             doctorId: doctorProfile.id,
-            specialtyId: specId,
+            specialtyId: specialties[specName].id,
           },
         },
         update: {},
         create: {
           doctorId: doctorProfile.id,
-          specialtyId: specId,
+          specialtyId: specialties[specName].id,
         },
       });
     }
 
-    /*
-     * 5. DISPONIBILIDADES MÚLTIPLES
-     */
     const scheduleBlocks = [
-      // Turnos de la Mañana
       { startH: 8, startM: 0, endH: 9, endM: 0, targetDate: tomorrow },
       { startH: 9, startM: 0, endH: 10, endM: 0, targetDate: tomorrow },
       { startH: 10, startM: 0, endH: 11, endM: 0, targetDate: tomorrow },
       { startH: 11, startM: 0, endH: 12, endM: 0, targetDate: tomorrow },
-      // Turnos de la Tarde
       { startH: 14, startM: 0, endH: 15, endM: 0, targetDate: tomorrow },
       { startH: 15, startM: 0, endH: 16, endM: 0, targetDate: tomorrow },
-      // Mañana del siguiente día
       { startH: 9, startM: 0, endH: 10, endM: 0, targetDate: dayAfterTomorrow },
       { startH: 10, startM: 0, endH: 11, endM: 0, targetDate: dayAfterTomorrow },
     ];
@@ -228,7 +237,7 @@ async function main() {
       const existingAvailability = await prisma.availability.findFirst({
         where: {
           doctorId: doctorProfile.id,
-          startTime: startTime,
+          startTime,
         },
       });
 
@@ -245,12 +254,191 @@ async function main() {
     }
   }
 
-  console.log("✅ Seed completado perfectamente. Cuentas creadas sin errores.");
+  /*
+   * Limpiar datos demo dependientes para evitar duplicados
+   */
+  await prisma.appointmentReport.deleteMany({});
+  await prisma.evaluation.deleteMany({});
+  await prisma.notification.deleteMany({});
+  await prisma.appointment.deleteMany({});
+
+  /*
+   * CITAS DEMO
+   */
+  const cardiologyAvailability = await prisma.availability.findFirst({
+    where: {
+      doctorId: doctorProfiles["medico@demo.com"],
+      isBooked: false,
+    },
+    orderBy: {
+      startTime: "asc",
+    },
+  });
+
+  if (!cardiologyAvailability) {
+    throw new Error("No hay disponibilidad demo para Cardiologia");
+  }
+
+  const scheduledAppointment = await prisma.appointment.create({
+    data: {
+      patientId: patientProfile.id,
+      doctorId: doctorProfiles["medico@demo.com"],
+      availabilityId: cardiologyAvailability.id,
+      appointmentDate: cardiologyAvailability.startTime,
+      specialtyId: specialties["Cardiologia"].id,
+      symptoms: "Dolor en el pecho ocasional, cansancio y dificultad leve para respirar.",
+      priority: Priority.HIGH,
+      status: AppointmentStatus.SCHEDULED,
+    },
+  });
+
+  await prisma.availability.update({
+    where: { id: cardiologyAvailability.id },
+    data: { isBooked: true },
+  });
+
+  const pediatricsAvailability = await prisma.availability.findFirst({
+    where: {
+      doctorId: doctorProfiles["ana.martinez@demo.com"],
+      isBooked: false,
+    },
+    orderBy: {
+      startTime: "asc",
+    },
+  });
+
+  if (!pediatricsAvailability) {
+    throw new Error("No hay disponibilidad demo para Pediatria");
+  }
+
+  const completedAppointment = await prisma.appointment.create({
+    data: {
+      patientId: patientProfile.id,
+      doctorId: doctorProfiles["ana.martinez@demo.com"],
+      availabilityId: pediatricsAvailability.id,
+      appointmentDate: pediatricsAvailability.startTime,
+      specialtyId: specialties["Pediatria"].id,
+      symptoms: "Fiebre persistente, dolor de garganta y malestar general.",
+      priority: Priority.NORMAL,
+      status: AppointmentStatus.COMPLETED,
+    },
+  });
+
+  await prisma.availability.update({
+    where: { id: pediatricsAvailability.id },
+    data: { isBooked: true },
+  });
+
+  await prisma.appointmentReport.create({
+    data: {
+      appointmentId: completedAppointment.id,
+      diagnosis: "Cuadro respiratorio leve sin signos de alarma.",
+      treatment: "Hidratacion, reposo y control de temperatura.",
+      observations: "Paciente estable durante la valoracion.",
+      recommendations: "Consultar nuevamente si la fiebre persiste por mas de 48 horas.",
+    },
+  });
+
+  await prisma.evaluation.create({
+    data: {
+      appointmentId: completedAppointment.id,
+      rating: 5,
+      comment: "Muy buena atencion y explicacion clara.",
+    },
+  });
+
+  const traumaAvailability = await prisma.availability.findFirst({
+    where: {
+      doctorId: doctorProfiles["luis.fernandez@demo.com"],
+      isBooked: false,
+    },
+    orderBy: {
+      startTime: "asc",
+    },
+  });
+
+  if (!traumaAvailability) {
+    throw new Error("No hay disponibilidad demo para Traumatologia");
+  }
+
+  const cancelledAppointment = await prisma.appointment.create({
+    data: {
+      patientId: patientProfile.id,
+      doctorId: doctorProfiles["luis.fernandez@demo.com"],
+      availabilityId: traumaAvailability.id,
+      appointmentDate: traumaAvailability.startTime,
+      specialtyId: specialties["Traumatologia"].id,
+      symptoms: "Dolor en rodilla derecha despues de actividad fisica.",
+      priority: Priority.LOW,
+      status: AppointmentStatus.CANCELLED,
+    },
+  });
+
+  const reassignedAvailability = await prisma.availability.findFirst({
+    where: {
+      doctorId: doctorProfiles["sofia.castro@demo.com"],
+      isBooked: false,
+    },
+    orderBy: {
+      startTime: "asc",
+    },
+  });
+
+  if (!reassignedAvailability) {
+    throw new Error("No hay disponibilidad demo para cita reasignada");
+  }
+
+  const reassignedAppointment = await prisma.appointment.create({
+    data: {
+      patientId: patientProfile.id,
+      doctorId: doctorProfiles["sofia.castro@demo.com"],
+      availabilityId: reassignedAvailability.id,
+      appointmentDate: reassignedAvailability.startTime,
+      specialtyId: specialties["Ginecologia"].id,
+      symptoms: "Dolor abdominal bajo y control ginecologico solicitado.",
+      priority: Priority.NORMAL,
+      status: AppointmentStatus.SCHEDULED,
+      wasReassigned: true,
+    },
+  });
+
+  await prisma.availability.update({
+    where: { id: reassignedAvailability.id },
+    data: { isBooked: true },
+  });
+
+  /*
+   * NOTIFICACIONES DEMO
+   */
+  await prisma.notification.createMany({
+    data: [
+      {
+        userId: patientUser.id,
+        appointmentId: scheduledAppointment.id,
+        type: NotificationType.REMINDER,
+        message: "Recuerda tu cita de Cardiologia programada.",
+      },
+      {
+        userId: adminUser.id,
+        appointmentId: cancelledAppointment.id,
+        type: NotificationType.CANCELLATION,
+        message: "Una cita de Traumatologia fue cancelada.",
+      },
+      {
+        userId: patientUser.id,
+        appointmentId: reassignedAppointment.id,
+        type: NotificationType.REASSIGNMENT,
+        message: "Tu cita fue reasignada correctamente.",
+      },
+    ],
+  });
+
+  console.log("✅ Seed completado con usuarios, médicos, disponibilidades, citas, reportes y notificaciones.");
 }
 
 main()
   .catch((error) => {
-    console.error(error);
+    console.error("❌ Error ejecutando seed:", error);
     process.exit(1);
   })
   .finally(async () => {

@@ -93,7 +93,8 @@ model Specialty {
   description String?
   isActive    Boolean @default(true)
 
-  doctors DoctorSpecialty[]
+  doctors      DoctorSpecialty[]
+  appointments Appointment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -129,9 +130,12 @@ model Appointment {
   patientId      String
   doctorId       String
   availabilityId String?
+  specialtyId    String?
 
   appointmentDate DateTime
   requestDate     DateTime @default(now())
+
+  symptoms String? @db.Text
 
   status        AppointmentStatus @default(SCHEDULED)
   priority      Priority          @default(NORMAL)
@@ -140,9 +144,26 @@ model Appointment {
   patient      PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctor       DoctorProfile  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   availability Availability?  @relation(fields: [availabilityId], references: [id])
+  specialty    Specialty?     @relation(fields: [specialtyId], references: [id])
 
   notifications Notification[]
   evaluation    Evaluation?
+  report        AppointmentReport?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AppointmentReport {
+  id            String @id @default(cuid())
+  appointmentId String @unique
+
+  diagnosis       String? @db.Text
+  treatment       String? @db.Text
+  observations    String? @db.Text
+  recommendations String? @db.Text
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -179,15 +200,15 @@ model Evaluation {
 
 model ChatMessage {
   id        String   @id @default(cuid())
-  waId      String?  // ID único del mensaje que genera Meta (evita procesar duplicados)
-  phone     String   // Teléfono del remitente como respaldo rápido
-  role      String   // "user" (paciente) o "assistant" (Llama 3.1)
+  waId      String? // ID único del mensaje que genera Meta (evita procesar duplicados)
+  phone     String // Teléfono del remitente como respaldo rápido
+  role      String // "user" (paciente) o "assistant" (Llama 3.1)
   content   String   @db.Text // Texto del mensaje
   createdAt DateTime @default(now())
 
   // Relación opcional: si el número está registrado, lo vinculamos a su User directamente
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([phone]) // Indexado para buscar el historial del número en milisegundos
 }
