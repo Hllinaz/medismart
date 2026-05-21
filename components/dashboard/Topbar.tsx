@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Bell, LogOut, Search } from "lucide-react";
+import { LogOut, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 
@@ -23,7 +22,6 @@ const roleLabels: Record<Role, string> = {
 
 export function Topbar({ user }: TopbarProps) {
   const router = useRouter();
-  const [notificationCount, setNotificationCount] = useState(0);
 
   async function logout() {
     await fetch("/api/auth/logout", {
@@ -33,37 +31,6 @@ export function Topbar({ user }: TopbarProps) {
 
     router.push("/login");
   }
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadNotifications() {
-      try {
-        const response = await fetch("/api/notifications", {
-          credentials: "include",
-        });
-
-        const data = await response.json();
-
-        if (response.ok && active) {
-          setNotificationCount(data.unreadCount ?? 0);
-        }
-      } catch {
-        console.error("Error loading notifications");
-      }
-    }
-
-    void loadNotifications();
-
-    const interval = window.setInterval(() => {
-      void loadNotifications();
-    }, 15000);
-
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
-  }, []);
 
   const initials =
     user?.name

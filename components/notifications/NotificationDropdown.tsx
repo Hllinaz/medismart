@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Bell } from "lucide-react";
 
@@ -21,7 +21,7 @@ export function NotificationDropdown() {
 
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  async function loadNotifications() {
+  const loadNotifications = useCallback(async () => {
     try {
       const response = await fetch("/api/notifications", {
         credentials: "include",
@@ -36,7 +36,7 @@ export function NotificationDropdown() {
     } catch {
       console.error("Error loading notifications");
     }
-  }
+  }, []);
 
   async function markAllAsRead() {
     try {
@@ -63,16 +63,19 @@ export function NotificationDropdown() {
   }
 
   useEffect(() => {
-    void loadNotifications();
+    const timeout = window.setTimeout(() => {
+      void loadNotifications();
+    }, 0);
 
     const interval = window.setInterval(() => {
       void loadNotifications();
     }, 15000);
 
     return () => {
+      window.clearTimeout(timeout)
       window.clearInterval(interval);
     };
-  }, []);
+  }, [loadNotifications]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -150,7 +153,7 @@ export function NotificationDropdown() {
             right-0
             top-14
             z-50
-            w-[360px]
+            w-90
             overflow-hidden
             rounded-3xl
             border
@@ -195,7 +198,7 @@ export function NotificationDropdown() {
             </button>
           </div>
 
-          <div className="max-h-[420px] overflow-y-auto">
+          <div className="max-h-105 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="p-6 text-center text-sm text-slate-500">
                 No tienes notificaciones.

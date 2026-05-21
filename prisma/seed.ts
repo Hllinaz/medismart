@@ -92,7 +92,7 @@ async function main() {
   const doctorsData = [
     {
       name: "Dr. Carlos Ramirez",
-      email: "medico@demo.com",
+      email: "carlos.ramirez@demo.com",
       phone: "+573003334455",
       birthDate: "1980-03-15",
       license: "MED-2026-001",

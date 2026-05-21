@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authErrorResponse, requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { reassignAvailability } from "@/lib/scheduling";
 import { notifyAppointmentCancelled } from "@/lib/notifications";
 
 type RouteContext = {
@@ -67,9 +66,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       cancelledBy: user.role,
     });
 
-    const reassignedAppointment = cancelledByDoctor && freedAvailabilityId
-      ? await reassignAvailability(freedAvailabilityId)
-      : null;
+    const reassignedAppointment = null;
 
     return NextResponse.json({ appointment: updatedAppointment, reassignedAppointment });
   } catch (error) {

@@ -8,6 +8,16 @@ const priorityRank: Record<Priority, number> = {
   LOW: 1,
 };
 
+function getDayRange(date: Date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  return { start, end };
+}
+
 export async function processReassignmentQueue() {
   const pendingAppointments = await prisma.appointment.findMany({
     where: {
@@ -39,17 +49,107 @@ export async function processReassignmentQueue() {
       ? [appointment.specialtyId]
       : appointment.doctor.specialties.map((item) => item.specialtyId);
 
-    const newAvailability = await prisma.availability.findFirst({
+    if (specialtyIds.length === 0) {
+      results.push({
+        appointmentId: appointment.id,
+        priority: appointment.priority,
+        status: "NO_SPECIALTY_FOUND",
+      });
+
+      continue;
+    }
+
+    const { start: sameDayStart, end: sameDayEnd } = getDayRange(
+      appointment.appointmentDate
+    );
+
+    const originalEndTime = new Date(appointment.appointmentDate);
+    originalEndTime.setHours(originalEndTime.getHours() + 1);
+
+    const specialtyWhere = {
+      doctor: {
+        specialties: {
+          some: {
+            specialtyId: {
+              in: specialtyIds,
+            },
+          },
+        },
+      },
+    };
+
+    // 1. Misma especialidad + mismo día + otro médico
+    let newAvailability = await prisma.availability.findFirst({
       where: {
         isBooked: false,
         doctorId: { not: appointment.doctorId },
-        startTime: { gt: new Date() },
-        doctor: { specialties: { some: { specialtyId: { in: specialtyIds } } } },
+        startTime: {
+          gt: new Date(),
+          gte: sameDayStart,
+          lt: sameDayEnd,
+        },
+        ...specialtyWhere,
       },
       orderBy: {
         startTime: "asc",
       },
     });
+
+    // 2. Misma especialidad + mismo día + mismo médico,
+    // pero después de la hora original
+    if (!newAvailability) {
+      newAvailability = await prisma.availability.findFirst({
+        where: {
+          isBooked: false,
+          doctorId: appointment.doctorId,
+          startTime: {
+            gt: originalEndTime,
+            gte: sameDayStart,
+            lt: sameDayEnd,
+          },
+          ...specialtyWhere,
+        },
+        orderBy: {
+          startTime: "asc",
+        },
+      });
+    }
+
+    // 3. Misma especialidad + otro día futuro + otro médico
+    if (!newAvailability) {
+      newAvailability = await prisma.availability.findFirst({
+        where: {
+          isBooked: false,
+          doctorId: { not: appointment.doctorId },
+          startTime: {
+            gt: new Date(),
+            gte: sameDayEnd,
+          },
+          ...specialtyWhere,
+        },
+        orderBy: {
+          startTime: "asc",
+        },
+      });
+    }
+
+    // 4. Misma especialidad + otro día futuro + mismo médico
+    if (!newAvailability) {
+      newAvailability = await prisma.availability.findFirst({
+        where: {
+          isBooked: false,
+          doctorId: appointment.doctorId,
+          startTime: {
+            gt: new Date(),
+            gte: sameDayEnd,
+          },
+          ...specialtyWhere,
+        },
+        orderBy: {
+          startTime: "asc",
+        },
+      });
+    }
 
     if (!newAvailability) {
       results.push({
