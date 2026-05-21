@@ -50,8 +50,26 @@ type WeeklyCalendarProps = {
   onCompleteAppointment?: (appointmentId: string) => Promise<void>;
 };
 
-const hours = Array.from({ length: 11 }, (_, index) => index + 8);
+type TimeSlot = {
+  hour: number;
+  minute: number;
+  label: string;
+};
+
 const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+const statusLabels: Record<string, string> = {
+  SCHEDULED: "Programada",
+  CANCELLED: "Cancelada",
+  COMPLETED: "Completada",
+  PENDING_REASSIGNMENT: "Por reasignar",
+};
+
+const priorityLabels: Record<string, string> = {
+  HIGH: "Alta",
+  NORMAL: "Normal",
+  LOW: "Baja",
+};
 
 function startOfWeek(date: Date) {
   const copy = new Date(date);
@@ -74,19 +92,58 @@ function sameDay(a: Date, b: Date) {
   );
 }
 
+function sameSlot(date: Date, day: Date, slot: TimeSlot) {
+  return sameDay(date, day) && date.getHours() === slot.hour && date.getMinutes() === slot.minute;
+}
+
 function getAppointmentClass(status: string) {
   switch (status) {
     case "SCHEDULED":
-      return "bg-teal-600 text-white";
+      return "border-teal-200 bg-teal-600 text-white";
     case "CANCELLED":
-      return "bg-slate-200 text-slate-600";
+      return "border-slate-200 bg-slate-100 text-slate-600";
     case "COMPLETED":
-      return "bg-blue-600 text-white";
+      return "border-blue-200 bg-blue-600 text-white";
     case "PENDING_REASSIGNMENT":
-      return "bg-amber-400 text-amber-950";
+      return "border-amber-200 bg-amber-100 text-amber-950";
     default:
-      return "bg-slate-100 text-slate-700";
+      return "border-slate-200 bg-slate-100 text-slate-700";
   }
+}
+
+function getPriorityClass(priority: string) {
+  switch (priority) {
+    case "HIGH":
+      return "bg-red-50 text-red-700";
+    case "LOW":
+      return "bg-slate-100 text-slate-600";
+    default:
+      return "bg-blue-50 text-blue-700";
+  }
+}
+
+function buildTimeSlots(appointments: Appointment[], availabilities: Availability[]) {
+  const dates = [
+    ...appointments.map((appointment) => new Date(appointment.appointmentDate)),
+    ...availabilities.map((availability) => new Date(availability.startTime)),
+    ...availabilities.map((availability) => new Date(availability.endTime)),
+  ].filter((date) => !Number.isNaN(date.getTime()));
+
+  const minHour = dates.length
+    ? Math.max(6, Math.min(...dates.map((date) => date.getHours())) - 1)
+    : 8;
+  const maxHour = dates.length
+    ? Math.min(22, Math.max(...dates.map((date) => date.getHours())) + 1)
+    : 18;
+
+  const slots: TimeSlot[] = [];
+
+  for (let hour = minHour; hour <= maxHour; hour += 1) {
+    slots.push({ hour, minute: 0, label: `${String(hour).padStart(2, "0")}:00` });
+    slots.push({ hour, minute: 30, label: `${String(hour).padStart(2, "0")}:30` });
+  }
+
+  return slots;
 }
 
 export function WeeklyCalendar({
@@ -94,15 +151,15 @@ export function WeeklyCalendar({
   availabilities = [],
   canCancel = false,
   onCancelAppointment,
-  canComplete,
-  onCompleteAppointment
+  canComplete = false,
+  onCompleteAppointment,
 }: WeeklyCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selected, setSelected] = useState<Appointment | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [completing, setCompleting] = useState(false);
 
   const today = new Date();
-  const currentHour = today.getHours();
 
   const weekStart = useMemo(() => startOfWeek(currentDate), [currentDate]);
 
@@ -111,18 +168,37 @@ export function WeeklyCalendar({
     [weekStart],
   );
 
-  function getAppointment(day: Date, hour: number) {
-    return appointments.find((appointment) => {
-      const date = new Date(appointment.appointmentDate);
-      return sameDay(date, day) && date.getHours() === hour;
-    });
+  const weekAppointments = useMemo(
+    () =>
+      appointments.filter((appointment) =>
+        days.some((day) => sameDay(new Date(appointment.appointmentDate), day)),
+      ),
+    [appointments, days],
+  );
+
+  const weekAvailabilities = useMemo(
+    () =>
+      availabilities.filter((availability) =>
+        days.some((day) => sameDay(new Date(availability.startTime), day)),
+      ),
+    [availabilities, days],
+  );
+
+  const timeSlots = useMemo(
+    () => buildTimeSlots(weekAppointments, weekAvailabilities),
+    [weekAppointments, weekAvailabilities],
+  );
+
+  function getAppointments(day: Date, slot: TimeSlot) {
+    return weekAppointments.filter((appointment) =>
+      sameSlot(new Date(appointment.appointmentDate), day, slot),
+    );
   }
 
-  function getAvailability(day: Date, hour: number) {
-    return availabilities.find((availability) => {
-      const date = new Date(availability.startTime);
-      return sameDay(date, day) && date.getHours() === hour;
-    });
+  function getAvailability(day: Date, slot: TimeSlot) {
+    return weekAvailabilities.find((availability) =>
+      sameSlot(new Date(availability.startTime), day, slot),
+    );
   }
 
   async function handleCancel() {
@@ -138,6 +214,19 @@ export function WeeklyCalendar({
     }
   }
 
+  async function handleComplete() {
+    if (!selected || !onCompleteAppointment) return;
+
+    setCompleting(true);
+
+    try {
+      await onCompleteAppointment(selected.id);
+      setSelected(null);
+    } finally {
+      setCompleting(false);
+    }
+  }
+
   return (
     <section className="rounded-3xl bg-white p-6 shadow-sm">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -146,7 +235,7 @@ export function WeeklyCalendar({
             Calendario semanal
           </h2>
           <p className="mt-2 text-sm text-slate-500">
-            Vista organizada por día, hora, disponibilidad y estado de cita.
+            Vista clínica por día, hora, paciente, prioridad y estado.
           </p>
         </div>
 
@@ -155,6 +244,7 @@ export function WeeklyCalendar({
             type="button"
             onClick={() => setCurrentDate(addDays(currentDate, -7))}
             className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 transition hover:bg-slate-50"
+            aria-label="Semana anterior"
           >
             <ChevronLeft size={18} />
           </button>
@@ -171,6 +261,7 @@ export function WeeklyCalendar({
             type="button"
             onClick={() => setCurrentDate(addDays(currentDate, 7))}
             className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 transition hover:bg-slate-50"
+            aria-label="Semana siguiente"
           >
             <ChevronRight size={18} />
           </button>
@@ -178,27 +269,27 @@ export function WeeklyCalendar({
       </div>
 
       <div className="mb-5 flex flex-wrap gap-3 text-xs font-semibold">
-        <Legend color="bg-emerald-100 border-emerald-300" label="Disponible" />
-        <Legend color="bg-teal-600" label="Programada" />
-        <Legend color="bg-slate-300" label="Cancelada" />
-        <Legend color="bg-blue-600" label="Completada" />
-        <Legend color="bg-amber-400" label="Pendiente" />
+        <Legend color="border-emerald-300 bg-emerald-100" label="Disponible" />
+        <Legend color="border-teal-600 bg-teal-600" label="Programada" />
+        <Legend color="border-blue-600 bg-blue-600" label="Completada" />
+        <Legend color="border-slate-300 bg-slate-300" label="Cancelada" />
+        <Legend color="border-amber-400 bg-amber-400" label="Por reasignar" />
       </div>
 
       <div className="overflow-x-auto">
-        <div className="min-w-225">
-          <div className="grid grid-cols-[90px_repeat(7,1fr)] border-b border-slate-200">
+        <div className="min-w-[1020px]">
+          <div className="grid grid-cols-[76px_repeat(7,minmax(124px,1fr))] border-b border-slate-200">
             <div />
 
             {days.map((day) => {
               const isToday = sameDay(day, today);
 
               return (
-                <div key={day.toISOString()} className="px-3 py-4 text-center">
+                <div key={day.toISOString()} className="px-2 py-4 text-center">
                   <div
                     className={
                       isToday
-                        ? "mx-auto max-w-20 rounded-2xl bg-teal-50 px-3 py-2"
+                        ? "mx-auto max-w-24 rounded-2xl bg-teal-50 px-3 py-2"
                         : ""
                     }
                   >
@@ -227,175 +318,158 @@ export function WeeklyCalendar({
             })}
           </div>
 
-          {hours.map((hour) => {
-            const isCurrentHour = hour === currentHour;
+          {timeSlots.map((slot) => (
+            <div
+              key={slot.label}
+              className="grid min-h-20 grid-cols-[76px_repeat(7,minmax(124px,1fr))] border-b border-slate-200/70"
+            >
+              <div className="px-2 py-3 text-xs font-semibold text-slate-500">
+                {slot.label}
+              </div>
 
-            return (
-              <div
-                key={hour}
-                className="grid min-h-24 grid-cols-[90px_repeat(7,1fr)] border-b border-slate-200/70"
-              >
-                <div
-                  className={
-                    isCurrentHour
-                      ? "px-3 py-4 text-sm font-bold text-teal-600"
-                      : "px-3 py-4 text-sm font-semibold text-slate-500"
-                  }
-                >
-                  {hour}:00
-                </div>
+              {days.map((day) => {
+                const slotAppointments = getAppointments(day, slot);
+                const availability = getAvailability(day, slot);
 
-                {days.map((day) => {
-                  const appointment = getAppointment(day, hour);
-                  const availability = getAvailability(day, hour);
-
-                  return (
-                    <button
-                      key={`${day.toISOString()}-${hour}`}
-                      type="button"
-                      onClick={() => appointment && setSelected(appointment)}
-                      className="border-l border-slate-200/70 p-2 text-left transition hover:bg-slate-50"
-                    >
-                      {appointment ? (
-                        <div
-                          className={`rounded-2xl p-3 shadow-sm transition hover:scale-[1.02] hover:shadow-lg ${getAppointmentClass(
+                return (
+                  <div
+                    key={`${day.toISOString()}-${slot.label}`}
+                    className="min-w-0 overflow-hidden border-l border-slate-200/70 p-2"
+                  >
+                    <div className="grid min-w-0 gap-2">
+                      {slotAppointments.map((appointment) => (
+                        <button
+                          key={appointment.id}
+                          type="button"
+                          onClick={() => setSelected(appointment)}
+                          className={`w-full min-w-0 overflow-hidden rounded-2xl border p-2.5 text-left shadow-sm transition hover:shadow-md ${getAppointmentClass(
                             appointment.status,
                           )}`}
                         >
-                          <p className="truncate text-sm font-bold">
-                            {appointment.patient.user.name}
-                          </p>
+                          <div className="mb-1.5 min-w-0">
+                            <p className="truncate text-sm font-bold leading-5">
+                              {appointment.patient.user.name}
+                            </p>
+                          </div>
 
-                          <p className="mt-1 truncate text-[11px] opacity-80">
+                          <p className="truncate text-xs leading-5 opacity-85">
                             {appointment.specialty?.name ?? "Sin especialidad"}
                           </p>
 
-                          <p className="mt-1 text-xs opacity-80">
-                            {new Date(
-                              appointment.appointmentDate,
-                            ).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                          <p className="mt-1 text-xs font-semibold opacity-85">
+                            {formatTime(appointment.appointmentDate)}
                           </p>
 
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            <span className="rounded-full bg-white/20 px-2 py-1 text-[10px] font-bold">
-                              {appointment.status}
+                          <div className="mt-2 flex min-w-0 flex-wrap gap-1">
+                            <span className="max-w-full truncate rounded-full bg-white/20 px-2 py-1 text-[10px] font-bold">
+                              {statusLabels[appointment.status] ?? appointment.status}
+                            </span>
+
+                            <span className="max-w-full truncate rounded-full bg-white/20 px-2 py-1 text-[10px] font-bold">
+                              {priorityLabels[appointment.priority] ?? appointment.priority}
                             </span>
 
                             {appointment.wasReassigned ? (
-                              <span className="rounded-full bg-yellow-200 px-2 py-1 text-[10px] font-bold text-yellow-900">
-                                REASSIGNED
+                              <span className="max-w-full truncate rounded-full bg-yellow-200 px-2 py-1 text-[10px] font-bold text-yellow-900">
+                                Reasignada
                               </span>
                             ) : null}
                           </div>
-                        </div>
-                      ) : availability && !availability.isBooked ? (
-                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-700">
-                          <p className="text-sm font-bold">Disponible</p>
-                          <p className="mt-1 text-xs">
-                            {new Date(availability.startTime).toLocaleTimeString(
-                              [],
-                              {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              },
-                            )}
+                        </button>
+                      ))}
+
+                      {!slotAppointments.length && availability && !availability.isBooked ? (
+                        <div className="w-full min-w-0 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">
+                          <p className="truncate text-xs font-bold">Disponible</p>
+                          <p className="mt-1 truncate text-xs">
+                            {formatTime(availability.startTime)} - {formatTime(availability.endTime)}
                           </p>
                         </div>
                       ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
 
       {selected ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl">
-            <div className="mb-5 flex items-start justify-between gap-4">
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
+            <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <h3 className="text-2xl font-bold text-slate-900">
+                <p className="text-sm font-semibold uppercase tracking-wide text-teal-700">
                   Detalles de la cita
+                </p>
+                <h3 className="mt-2 text-2xl font-bold text-slate-900">
+                  {selected.patient.user.name}
                 </h3>
-                <p className="mt-2 text-sm text-slate-500">{selected.id}</p>
+                <p className="mt-2 text-sm text-slate-500">
+                  {formatFullDate(selected.appointmentDate)}
+                </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap gap-2">
                 <StatusBadge status={selected.status} />
 
-                {selected.wasReassigned ? (
-                  <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold text-yellow-800">
-                    REASSIGNED
-                  </span>
-                ) : null}
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-bold ${getPriorityClass(
+                    selected.priority,
+                  )}`}
+                >
+                  Prioridad {priorityLabels[selected.priority] ?? selected.priority}
+                </span>
               </div>
             </div>
 
-            <div className="grid gap-4 text-sm">
+            <div className="grid gap-4 text-sm md:grid-cols-2">
+              <Info label="Correo" value={selected.patient.user.email ?? "No disponible"} />
+              <Info label="Especialidad" value={selected.specialty?.name ?? "No especificada"} />
               <Info
-                label="Paciente"
-                value={selected.patient.user.name}
+                label="Estado"
+                value={statusLabels[selected.status] ?? selected.status}
               />
-
               <Info
-                label="Correo"
-                value={selected.patient.user.email ?? "No disponible"}
-              />
-
-              <Info
-                label="Especialidad"
-                value={selected.specialty?.name ?? "No especificada"}
-              />
-
-              <Info
-                label="Síntomas"
-                value={selected.symptoms?.trim() || "No registrados"}
-              />
-
-              <Info
-                label="Fecha"
-                value={new Date(selected.appointmentDate).toLocaleString()}
-              />
-
-              <Info
-                label="Prioridad"
-                value={selected.priority}
+                label="Reasignación"
+                value={selected.wasReassigned ? "Cita reasignada" : "Sin reasignación"}
               />
             </div>
+
+            <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+              <p className="text-xs font-semibold text-slate-500">Síntomas</p>
+              <p className="mt-2 text-sm leading-6 text-slate-800">
+                {selected.symptoms?.trim() || "No registrados"}
+              </p>
+            </div>
+
+            {canComplete && selected.status === "SCHEDULED" ? (
+              <button
+                type="button"
+                onClick={handleComplete}
+                disabled={completing}
+                className="mt-6 h-11 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {completing ? "Completando..." : "Marcar como completada"}
+              </button>
+            ) : null}
 
             {canCancel && selected.status === "SCHEDULED" ? (
               <button
                 type="button"
                 onClick={handleCancel}
                 disabled={cancelling}
-                className="mt-6 h-11 w-full rounded-xl bg-red-600 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-3 h-11 w-full rounded-xl bg-red-600 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {cancelling ? "Cancelando..." : "Cancelar cita"}
-              </button>
-            ) : null}
-
-            {canComplete && selected.status === "SCHEDULED" ? (
-              <button
-                type="button"
-                onClick={async () => {
-                  await onCompleteAppointment?.(selected.id);
-                  setSelected(null);
-                }}
-                className="mt-3 h-11 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700"
-              >
-                Marcar como completada
               </button>
             ) : null}
 
             <button
               type="button"
               onClick={() => setSelected(null)}
-              className="mt-3 h-11 w-full rounded-xl bg-teal-600 text-sm font-semibold text-white transition hover:bg-teal-700"
+              className="mt-3 h-11 w-full rounded-xl bg-slate-900 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
               Cerrar
             </button>
@@ -422,4 +496,18 @@ function Legend({ color, label }: { color: string; label: string }) {
       <span>{label}</span>
     </div>
   );
+}
+
+function formatTime(value: string) {
+  return new Date(value).toLocaleTimeString("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatFullDate(value: string) {
+  return new Date(value).toLocaleString("es-CO", {
+    dateStyle: "full",
+    timeStyle: "short",
+  });
 }

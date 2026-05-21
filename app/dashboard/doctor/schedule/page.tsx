@@ -131,6 +131,18 @@ export default function DoctorSchedulePage() {
     (availability) => !availability.isBooked
   ).length;
 
+  const todayCount = appointments.filter((appointment) => {
+    const date = new Date(appointment.appointmentDate);
+    const today = new Date();
+
+    return (
+      appointment.status === "SCHEDULED" &&
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate()
+    );
+  }).length;
+
   const scheduledCount = appointments.filter(
     (appointment) =>
       appointment.status === "SCHEDULED"
@@ -189,19 +201,28 @@ export default function DoctorSchedulePage() {
 
         <div>
           <h1 className="text-4xl font-bold text-slate-900">
-            Agenda medica
+            Agenda médica
           </h1>
 
           <p className="mt-3 text-slate-500">
-            Consulta y administra tus citas asignadas.
+            Consulta pacientes, horarios y acciones clínicas de tus citas.
           </p>
         </div>
 
         <div className="flex gap-4">
+          <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
+            <p className="text-sm font-semibold text-slate-500">
+              Citas hoy
+            </p>
+
+            <p className="mt-1 text-3xl font-bold text-teal-700">
+              {todayCount}
+            </p>
+          </div>
 
           <div className="rounded-2xl bg-white px-5 py-4 shadow-sm">
             <p className="text-sm font-semibold text-slate-500">
-              Horarios disponibles
+              Disponibles
             </p>
 
             <p className="mt-1 text-3xl font-bold text-emerald-600">
