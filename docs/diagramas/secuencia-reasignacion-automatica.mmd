@@ -1,0 +1,54 @@
+sequenceDiagram
+    actor Medico
+    participant Frontend as Interfaz Medico
+    participant API as Backend / API Citas
+    participant Auth as Servicio Auth
+    participant Scheduling as Servicio Agenda
+    participant DB as Base de Datos
+    participant Notif as Servicio Notificaciones
+
+    Medico->>Frontend: Cancela cita activa
+    Frontend->>API: POST /api/appointments/{id}/cancel
+    activate API
+    API->>Auth: Validar token y rol MEDICO
+    activate Auth
+    Auth-->>API: Usuario autorizado
+    deactivate Auth
+
+    API->>Scheduling: Cancelar cita por medico
+    activate Scheduling
+    Scheduling->>DB: Obtener cita y disponibilidad
+    activate DB
+    DB-->>Scheduling: Datos de cita
+    Scheduling->>DB: Marcar cita como PENDING_REASSIGNMENT
+    Scheduling->>DB: Buscar citas en espera del mismo medico
+    DB-->>Scheduling: Lista de citas pendientes
+
+    alt Existen pacientes en espera
+        Scheduling->>Scheduling: Ordenar por prioridad y requestDate
+        Scheduling->>DB: Reasignar disponibilidad al paciente seleccionado
+        DB-->>Scheduling: Reasignacion confirmada
+        deactivate DB
+        Scheduling->>Notif: Crear notificacion de reasignacion
+        activate Notif
+        Notif-->>Scheduling: Notificacion registrada
+        deactivate Notif
+        Scheduling-->>API: Cita reasignada
+        deactivate Scheduling
+        API-->>Frontend: Respuesta JSON con reasignacion
+        deactivate API
+        Frontend-->>Medico: Mostrar confirmacion de reasignacion
+    else No existen pacientes en espera
+        Scheduling->>DB: Liberar disponibilidad
+        DB-->>Scheduling: Disponibilidad liberada
+        deactivate DB
+        Scheduling->>Notif: Crear notificacion de cancelacion
+        activate Notif
+        Notif-->>Scheduling: Notificacion registrada
+        deactivate Notif
+        Scheduling-->>API: Cita cancelada sin reasignacion
+        deactivate Scheduling
+        API-->>Frontend: Respuesta JSON de cancelacion
+        deactivate API
+        Frontend-->>Medico: Mostrar confirmacion de cancelacion
+    end

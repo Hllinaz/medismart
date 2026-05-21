@@ -1,0 +1,70 @@
+sequenceDiagram
+    actor Paciente
+    participant Frontend as Interfaz Paciente
+    participant API as Backend / API Citas
+    participant Auth as Servicio Auth
+    participant Scheduling as Servicio Agenda
+    participant DB as Base de Datos
+    participant Notif as Servicio Notificaciones
+
+    Paciente->>Frontend: Solicita agendar cita
+    Frontend->>API: GET /api/availability?doctorId&date
+    activate API
+    API->>Auth: Validar token y rol PACIENTE
+    activate Auth
+    Auth-->>API: Usuario autorizado
+    deactivate Auth
+
+    API->>Scheduling: Consultar disponibilidad medica
+    activate Scheduling
+    Scheduling->>DB: Buscar horarios libres
+    activate DB
+    DB-->>Scheduling: Disponibilidades con isBooked = false
+    deactivate DB
+    Scheduling-->>API: Horarios disponibles
+    deactivate Scheduling
+    API-->>Frontend: Respuesta JSON con horarios
+    deactivate API
+    Frontend-->>Paciente: Mostrar horarios disponibles
+
+    Paciente->>Frontend: Selecciona fecha y hora
+    Frontend->>API: POST /api/appointments
+    activate API
+    API->>Auth: Validar token y rol PACIENTE
+    activate Auth
+    Auth-->>API: Usuario autorizado
+    deactivate Auth
+
+    API->>Scheduling: Crear cita con disponibilidad seleccionada
+    activate Scheduling
+    Scheduling->>Scheduling: Calcular prioridad
+    Scheduling->>DB: Iniciar transaccion
+    activate DB
+    Scheduling->>DB: Validar disponibilidad libre
+    DB-->>Scheduling: Resultado de disponibilidad
+
+    alt Disponibilidad libre
+        Scheduling->>DB: Crear Appointment
+        Scheduling->>DB: Marcar Availability.isBooked = true
+        Scheduling->>DB: Confirmar transaccion
+        DB-->>Scheduling: Cita creada
+        deactivate DB
+        Scheduling->>Notif: Crear notificacion de cita agendada
+        activate Notif
+        Notif-->>Scheduling: Notificacion registrada
+        deactivate Notif
+        Scheduling-->>API: Cita creada
+        deactivate Scheduling
+        API-->>Frontend: 201 Created
+        deactivate API
+        Frontend-->>Paciente: Mostrar confirmacion de cita
+    else Disponibilidad no disponible
+        Scheduling->>DB: Revertir transaccion
+        DB-->>Scheduling: Conflicto de disponibilidad
+        deactivate DB
+        Scheduling-->>API: Error de disponibilidad
+        deactivate Scheduling
+        API-->>Frontend: 409 Conflict
+        deactivate API
+        Frontend-->>Paciente: Mostrar horario no disponible
+    end
